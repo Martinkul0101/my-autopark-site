@@ -21,9 +21,9 @@ except Exception:
     db = {"cars": {}, "repairs": [], "stock": {}}
 
 # Безпечна ініціалізація ключів
-if "cars" not in db: db["cars"] = {}
-if "repairs" not in db: db["repairs"] = []
-if "stock" not in db: db["stock"] = {}
+if "cars" not in db or not isinstance(db["cars"], dict): db["cars"] = {}
+if "repairs" not in db or not isinstance(db["repairs"], list): db["repairs"] = []
+if "stock" not in db or not isinstance(db["stock"], dict): db["stock"] = {}
 
 # --- СТАНДАРТНА ФУНКЦІЯ ЗБЕРЕЖЕННЯ ---
 def ulozit_data():
@@ -79,10 +79,10 @@ if menu == "📋 SEZNAM VOZIDEL":
     if not db["cars"]:
         st.info("V autoparku nejsou žádná vozidla. Přejdete na '➕ PŘIDAT VOZIDLO'.")
     else:
-        ct_tahac = sum(1 for c in db["cars"].values() if c.get("type") == "Tahač")
-        ct_prives = sum(1 for c in db["cars"].values() if c.get("type") == "Přívěs")
-        ct_osobni = sum(1 for c in db["cars"].values() if c.get("type") == "Osobní auto")
-        ct_autobus = sum(1 for c in db["cars"].values() if c.get("type") == "Autobus")
+        ct_tahac = sum(1 for c in db["cars"].values() if isinstance(c, dict) and c.get("type") == "Tahač")
+        ct_prives = sum(1 for c in db["cars"].values() if isinstance(c, dict) and c.get("type") == "Přívěs")
+        ct_osobni = sum(1 for c in db["cars"].values() if isinstance(c, dict) and c.get("type") == "Osobní auto")
+        ct_autobus = sum(1 for c in db["cars"].values() if isinstance(c, dict) and c.get("type") == "Autobus")
         stat_c1, stat_c2, stat_c3, stat_c4 = st.columns(4)
         stat_c1.metric("🚚 Tahače", f"{ct_tahac} ks")
         stat_c2.metric("📦 Přívěsy", f"{ct_prives} ks")
@@ -92,6 +92,7 @@ if menu == "📋 SEZNAM VOZIDEL":
         st.write("💡 **Kliknutím na řádek v tabulce** vyberete techniku pro správu nebo TO.")
         tabela_aut = []
         for v, c in db["cars"].items():
+            if not isinstance(c, dict): continue
             curr_km = int(c.get('mileage', 0))
             is_trailer = c.get("type") == "Přívěs"
             tabela_aut.append({
@@ -104,69 +105,63 @@ if menu == "📋 SEZNAM VOZIDEL":
                 "Tachograf": zkontrolovat_datum(c.get('tachograf_date', '')) if c.get('type') in ["Tahač", "Autobus"] else "—",
                 "Údržba Status": zkontrolovat_udrzbu(c.get('next_to_date', ''), c.get('next_to_km', 0), curr_km, is_trailer)
             })
-        df_cars = pd.DataFrame(tabela_aut)
-        df_cars = df_cars.sort_values(by="Typ")
-        id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single", key="cars_df_selection")
-        oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])
-        
-        if oznacene_radky:
-            index_auta = oznacene_radky
-            avin = df_cars.iloc[index_auta]["VIN"]
-            car = db["cars"][avin]
-            v_type = car.get('type', 'Osobní auto')
-            st.write("---")
-            st.header(f"📇 [{v_type}] {car.get('brand_model', 'Neznámé')}")
-            m1, m2, m3 = st.columns(3)
-            m1.metric("SPZ", car.get('reg_number', '—'))
-            m2.metric("Tachometr", "— (Přívěs)" if v_type == "Přívěs" else f"{int(car.get('mileage', 0)):,} km".replace(",", " "))
-            m3.metric("VIN kód", avin[:8] + "...")
-            if v_type in ["Tahač", "Autobus"]:
-                st.warning(f"⏱️ **Platnost cejchování tachografu:** {zkontrolovat_datum(car.get('tachograf_date', ''))}")
-            hist_oprav = [r for r in db["repairs"] if r["vin"] == avin]
-            report_text = f"KARTA TECHNIKY [{v_type}]\nVygenerováno: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n==================================================\n\n- Model: {car.get('brand_model', 'Neznámé')}\n- SPZ: {car.get('reg_number', '—')}\n- VIN: {avin}\n"
-            if v_type != "Přívěs": report_text += f"- Tachometr: {car.get('mileage', 0)} km\n"
-            report_text += f"- STK do: {car.get('stk_date', '—')}\n\nSERVISNÍ HISTORIE:\n"
-            for idx, r in enumerate(hist_oprav, 1):
-                report_text += f"\n[{r.get('date', '—')}] Tachometr: {r.get('mileage', '—')} km | Cena: {r.get('cost', 0.0)} Kč\n   Práce: {r.get('description', '—')}\n   Materiál/Díly: {r.get('part_codes', '—')}\n"
-            st.download_button(label="📥 Stáhnout kartu techniky (.txt)", data=report_text, file_name=f"karta_{car.get('reg_number','tech')}.txt", mime="text/plain", use_container_width=True)
+        if tabela_aut:
+            df_cars = pd.DataFrame(tabela_aut)
+            df_cars = df_cars.sort_values(by="Typ")
+            id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single", key="cars_df_selection")
+            oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])
             
-            st.write("---")
-            st.markdown("### ⚙️ Správa vybraného vozidla")
-            akce = st.selectbox("Vyberte akci:", ["🔧 Přidat servisní záznam / TO", "📦 Zobrazit použité náhradní díly", "📜 Zobrazit historii oprav", "📝 Upravit údaje vozidla"])
-            
-            if akce == "🔧 Přidat servisní záznam / TO":
-                col_s1, col_s2 = st.columns(2)
-                r_date = col_s1.date_input("Datum servisu:", value=datetime.today().date())
-                r_km = col_s2.number_input("Aktuální stav tachometru (km):", min_value=0, value=int(car.get('mileage', 0)) if v_type != "Přívěs" else 0, disabled=(v_type == "Přívěs"))
-                r_desc = st.text_area("Popis servisu / práce:", key="rep_desc")
-                st.markdown("##### 🛢️ Specifikace motorového oleje (volitelné)")
-                col_oil1, col_oil2 = st.columns(2)
-                oil_type = col_oil1.text_input("Typ/Viskozita oleje (např. 5W-30 Total):", key="oil_type_input").strip()
-                oil_qty = col_oil2.number_input("Množství oleje (v litrech):", min_value=0.0, max_value=50.0, value=0.0, step=0.5, key="oil_qty_input")
-                st.markdown("##### 📦 Náhradní díly")
-                sklad_dily = ["-- Vlastní kód / Bez odepsání --"] + [f"{item['name']} ({pid}) [Skladem: {item.get('quantity', 0)}ks]" for pid, item in db["stock"].items()]
-                vybrany_dil = st.selectbox("Vybrat díl ze skladu:", sklad_dily)
-                r_parts = st.text_input("Kódy použitých dílů (ručně, pokud nejsou na skladě):")
-                r_cost = st.number_input("Celková cena opravy (Kč):", min_value=0.0, step=100.0)
-                if st.button("Uložit servisní záznam", type="primary", use_container_width=True):
-                    novy_servis = {"vin": avin, "date": str(r_date), "mileage": r_km, "description": r_desc, "oil_type": oil_type, "oil_quantity": oil_qty, "part_codes": r_parts if vybrany_dil == "-- Vlastní kód / Bez odepsání --" else vybrany_dil, "cost": r_cost}
-                    db["repairs"].append(novy_servis)
-                    if v_type != "Přívěs": db["cars"][avin]["mileage"] = r_km
-                    ulozit_data()
-                    st.success("Servisní záznam úspěšně uložen!")
-                    st.rerun()
-            
-            elif akce == "📦 Zobrazit použité náhradní díly":
-                st.subheader("Přehled použitých dílů pro toto vozidlo")
-                dily_v_a = [r for r in db["repairs"] if r["vin"] == avin and r.get("part_codes")]
-                tabela_dilu = [{"Datum": d.get("date", "—"), "Použité díly": d.get("part_codes", "—"), "Popis opravy": d.get("description", "—")} for d in dily_v_a]
-                st.dataframe(pd.DataFrame(tabela_dilu), use_container_width=True, hide_index=True)
-            
-            elif akce == "📜 Zobrazit historii oprav":
-                st.subheader("Historie oprav")
-                if hist_oprav:
-                    for idx, r in enumerate(reversed(hist_oprav), 1):
-                        with st.expander(f"🔧 {r.get('date', '—')} | {r.get('description', 'Oprava')[:40]}..."):
-                            st.write(f"**Datum:** {r.get('date', '—')}")
-                            st.write(f"**Stav km:** {r.get('mileage', '—')} km")
-                            st.write(f"**Popis:** {r.get('description', '—')}")
+            if oznacene_radky:
+                index_auta = oznacene_radky
+                avin = df_cars.iloc[index_auta]["VIN"]
+                car = db["cars"][avin]
+                v_type = car.get('type', 'Osobní auto')
+                st.write("---")
+                st.header(f"📇 [{v_type}] {car.get('brand_model', 'Neznámé')}")
+                m1, m2, m3 = st.columns(3)
+                m1.metric("SPZ", car.get('reg_number', '—'))
+                m2.metric("Tachometr", "— (Přívěs)" if v_type == "Přívěs" else f"{int(car.get('mileage', 0)):,} km".replace(",", " "))
+                m3.metric("VIN kód", avin[:8] + "...")
+                if v_type in ["Tahač", "Autobus"]:
+                    st.warning(f"⏱️ **Platnost cejchování tachografu:** {zkontrolovat_datum(car.get('tachograf_date', ''))}")
+                hist_oprav = [r for r in db["repairs"] if r["vin"] == avin]
+                report_text = f"KARTA TECHNIKY [{v_type}]\nVygenerováno: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n==================================================\n\n- Model: {car.get('brand_model', 'Neznámé')}\n- SPZ: {car.get('reg_number', '—')}\n- VIN: {avin}\n"
+                if v_type != "Přívěs": report_text += f"- Tachometr: {car.get('mileage', 0)} km\n"
+                report_text += f"- STK do: {car.get('stk_date', '—')}\n\nSERVISNÍ HISTORIE:\n"
+                for idx, r in enumerate(hist_oprav, 1):
+                    report_text += f"\n[{r.get('date', '—')}] Tachometr: {r.get('mileage', '—')} km | Cena: {r.get('cost', 0.0)} Kč\n   Práce: {r.get('description', '—')}\n   Materiál/Díly: {r.get('part_codes', '—')}\n"
+                st.download_button(label="📥 Stáhnout kartu techniky (.txt)", data=report_text, file_name=f"karta_{car.get('reg_number','tech')}.txt", mime="text/plain", use_container_width=True)
+                
+                st.write("---")
+                st.markdown("### ⚙️ Správa vybraného vozidla")
+                akce = st.selectbox("Vyberte akci:", ["🔧 Přidat servisní záznam / TO", "📦 Zobrazit použité náhradní díly", "📜 Zobrazit historii oprav", "📝 Upravit údaje vozidla"])
+                
+                if akce == "🔧 Přidat servisní záznam / TO":
+                    col_s1, col_s2 = st.columns(2)
+                    r_date = col_s1.date_input("Datum servisu:", value=datetime.today().date())
+                    r_km = col_s2.number_input("Aktuální stav tachometru (km):", min_value=0, value=int(car.get('mileage', 0)) if v_type != "Přívěs" else 0, disabled=(v_type == "Přívěs"))
+                    r_desc = st.text_area("Popis servisu / práce:", key="rep_desc")
+                    st.markdown("##### 🛢️ Specifikace motorového oleje (volitelné)")
+                    col_oil1, col_oil2 = st.columns(2)
+                    oil_type = col_oil1.text_input("Typ/Viskozita oleje (např. 5W-30 Total):", key="oil_type_input").strip()
+                    oil_qty = col_oil2.number_input("Množství oleje (v litrech):", min_value=0.0, max_value=50.0, value=0.0, step=0.5, key="oil_qty_input")
+                    st.markdown("##### 📦 Náhradní díly")
+                    sklad_dily = ["-- Vlastní kód / Bez odepsání --"] + [f"{item['name']} ({pid}) [Skladem: {item.get('quantity', 0)}ks]" for pid, item in db["stock"].items() if isinstance(item, dict)]
+                    vybrany_dil = st.selectbox("Vybrat díl ze skladu:", sklad_dily)
+                    r_parts = st.text_input("Kódy použitých dílů (ručně, pokud nejsou na skladě):")
+                    r_cost = st.number_input("Celková cena opravy (Kč):", min_value=0.0, step=100.0)
+                    if st.button("Uložit servisní záznam", type="primary", use_container_width=True):
+                        novy_servis = {"vin": avin, "date": str(r_date), "mileage": r_km, "description": r_desc, "oil_type": oil_type, "oil_quantity": oil_qty, "part_codes": r_parts if vybrany_dil == "-- Vlastní kód / Bez odepsání --" else vybrany_dil, "cost": r_cost}
+                        db["repairs"].append(novy_servis)
+                        if v_type != "Přívěs": db["cars"][avin]["mileage"] = r_km
+                        ulozit_data()
+                        st.success("Servisní záznam úspěšně uložen!")
+                        st.rerun()
+                
+                elif akce == "📦 Zobrazit použité náhradní díly":
+                    st.subheader("Přehled použitých dílů pro toto vozidlo")
+                    dily_v_a = [r for r in db["repairs"] if r["vin"] == avin and r.get("part_codes")]
+                    tabela_dilu = [{"Datum": d.get("date", "—"), "Použité díly": d.get("part_codes", "—"), "Popis opravy": d.get("description", "—")} for d in dily_v_a]
+                    st.dataframe(pd.DataFrame(tabela_dilu), use_container_width=True, hide_index=True)
+                
+                elif akce == "📜 Zobrazit historii oprav":
