@@ -86,25 +86,26 @@ else:
         })
 
     df_cars = pd.DataFrame(tabela_aut).sort_values(by="Typ")
-    id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single", key="cars_df_select")
     
-    oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])
+    # Класична таблиця, сумісна з усіма версіями Streamlit
+    st.dataframe(df_cars, use_container_width=True, hide_index=True)
     
-    if oznacene_radky:
-        avin = df_cars.iloc[oznacene_radky]["VIN"].values[0]
-        car = next(c for c in cars_data if c["vin"] == avin)
+    st.write("---")
+    st.markdown("### 🔧 Nový servisní záznam")
+    
+    # Вибір автомобіля через випливаючий список (класичний та надійний метод)
+    seznam_vin = [c.get('vin', '-') for c in cars_data]
+    vybrany_vin = st.selectbox("Vyberte VIN vozidla pro servis:", seznam_vin)
+    
+    if vybrany_vin:
+        car = next(c for c in cars_data if c["vin"] == vybrany_vin)
         v_type = car.get('type', 'Osobní auto')
         
-        st.write("---")
-        st.header(f"🚖 [{v_type}] {car.get('brand_model', 'Neznámé')}")
-        m1, m2 = st.columns(2)
-        m1.metric("SPZ", car.get('reg_number', '-'))
-        m2.metric("Tachometr", f"- (Přívěs)" if v_type == "Přívěs" else f"{car.get('mileage', 0)} km")
-
-        st.markdown("### 🔧 Nový servisní záznam")
+        st.info(f"Vybráno vozidlo: {car.get('brand_model', 'Neznámé')} (SPZ: {car.get('reg_number', '-')})")
+        
         col_s1, col_s2 = st.columns(2)
-        r_date = col_s1.date_input("Datum servisu:", value=None)
-        r_km = col_s2.number_input("Aktuální stav tachometru (km):", min_value=0, value=0)
+        r_date = col_s1.date_input("Datum servisu:", value=datetime.now())
+        r_km = col_s2.number_input("Aktuální stav tachometru (km):", min_value=0, value=int(car.get('mileage', 0)))
         r_desc = st.text_area("Popis servisu / práce:", value="")
 
         try:
@@ -120,12 +121,12 @@ else:
 
         if st.button("Uložit servisní záznam", type="primary"):
             part_final = r_parts if vybrany_dil == "-- Ruční zadání --" else vybrany_dil
-            novy_servis = {"vin": avin, "date": str(r_date), "km": r_km, "description": r_desc, "parts": part_final, "cost": r_cost}
+            novy_servis = {"vin": vybrany_vin, "date": str(r_date), "km": r_km, "description": r_desc, "parts": part_final, "cost": r_cost}
             
             try:
                 supabase.table("repairs").insert(novy_servis).execute()
                 if v_type != "Přívěs":
-                    supabase.table("cars").update({"mileage": r_km}).eq("vin", avin).execute()
+                    supabase.table("cars").update({"mileage": r_km}).eq("vin", vybrany_vin).execute()
                 st.success("Servisní záznam uložen!")
                 st.rerun()
             except Exception as e:
