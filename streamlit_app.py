@@ -94,9 +94,9 @@ if menu == "📋 SEZNAM VOZIDEL":
             })
             
         df_cars = pd.DataFrame(tabela_aut).sort_values(by="Typ")
-        id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single", key="cars_df_select")ction")
-        oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])
-        
+id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, 
+on_select="rerun", selection_mode="single", key="cars_df_select")
+oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])        
         if oznacene_radky:
             avin = df_cars.iloc[oznacene_radky]["VIN"].values[0]
             car = next(c for c in cars_data if c["vin"] == avin)
