@@ -82,7 +82,7 @@ else:
             "Tachometr (km)": "-" if is_trailer else curr_km,
             "STK Status": zkontrolovat_datum(c.get('stk_date', '')),
             "Tachograf": zkontrolovat_datum(c.get('tachograf_date', '')),
-            "Údržba Status": zkontrolovac_udrzbu(c.get('next_to_date', ''), c.get('next_to_km', 0), curr_km, is_trailer)
+            "Údržba Status": zkontrolovat_udrzbu(c.get('next_to_date', ''), c.get('next_to_km', 0), curr_km, is_trailer)
         })
 
     df_cars = pd.DataFrame(tabela_aut).sort_values(by="Typ")
