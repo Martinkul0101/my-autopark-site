@@ -203,10 +203,10 @@ if menu == "📋 SEZNAM VOZIDEL":
                         db["cars"][avin]["mileage"] = r_km
                     ulozit_data()
                     st.success("Servisní záznam úspěšně uložen!")
-                    st.rerun()
-
-            # Вкладка 2: Використані запчастини (Помилку ліквідовано через st.dataframe)
-            with t2:
+                       # Вкладка 2: Použité náhradní díly
+                with t2:
                 st.subheader("Přehled použitých dílů pro toto vozidlo")
                 dily_v_a = [r for r in db["repairs"] if r["vin"] == avin and r.get("part_codes")]
-                if dily_v_a:
+                tabela_dilu = [{"Datum": d.get("date", "—"), "Použité díly": d.get("part_codes", "—"), "Popis opravy": d.get("description", "—")} for d in dily_v_a]
+                st.dataframe(pd.DataFrame(tabela_dilu), use_container_width=True, hide_index=True)
+                    st.rerun()
