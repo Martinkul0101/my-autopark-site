@@ -8,7 +8,7 @@ st.set_page_config(page_title="Správa Vozového Parku", layout="centered", page
 
 # --- ПІДКЛЮЧЕННЯ SUPABASE ---
 url = "https://blrytxiopxvpymdhlhfg.supabase.co"
-key = "sb_publishable_WQzHTKZloeIL25a8YY8jEw"
+key = "sb_publishable_WQzHTKZloeIL25a8YY8jEw_rA7nzUV3"
 supabase: Client = create_client(url, key)
 
 # --- БІЧНЕ МЕНЮ ---
@@ -182,4 +182,3 @@ elif menu == "📦 SKLAD NÁHRADNÍCH DÍLŮ":
         st.info("Sklad je prázdný.")
     else:
         st.subheader("Aktuální zásoby na skladě")
-        tabela_sklad = [{"Kód dílu": item["pid"], "Název": item["name"], "Množství (ks)": item["quantity"], "Cena za ks": f"{item['price']} Kč"} for item in stock_data]
