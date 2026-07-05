@@ -7,13 +7,9 @@ from supabase import create_client, Client
 st.set_page_config(page_title="Správa Vozového Parku", layout="centered", page_icon="🚚")
 
 # --- ПІДКЛЮЧЕННЯ SUPABASE ---
-try:
-    url: str = st.secrets["SUPABASE_URL"]
-    key: str = st.secrets["SUPABASE_KEY"]
-    supabase: Client = create_client(url, key)
-except Exception:
-    st.error("🚨 Chybí konfigurace Supabase v Secrets!")
-    st.stop()
+url = "https://blrytxiopxvpymdhlhfg.supabase.co"
+key = "sb_publishable_WQzHTKZloeIL25a8YY8jEw"
+supabase: Client = create_client(url, key)
 
 # --- БІЧНЕ МЕНЮ ---
 st.sidebar.title("🚚 AUTOPARK")
@@ -140,7 +136,7 @@ if menu == "📋 SEZNAM VOZIDEL":
 # =================================================================
 # ЕКРАН 2: ➕ PŘIDAT VOZIDLO
 # =================================================================
-if menu == "➕ PŘIDAT VOZIDLO":
+elif menu == "➕ PŘIDAT VOZIDLO":
     st.title("➕ Přidat nové vozidlo")
     with st.form("add_car_form"):
         f_type = st.selectbox("Typ techniky:", ["Osobní auto", "Tahač", "Přívěs", "Autobus"])
@@ -164,7 +160,7 @@ if menu == "➕ PŘIDAT VOZIDLO":
 # =================================================================
 # ЕКРАН 3: 📦 SKLAD NÁHRADNÍCH DÍLŮ
 # =================================================================
-if menu == "📦 SKLAD NÁHRADNÍCH DÍLŮ":
+elif menu == "📦 SKLAD NÁHRADNÍCH DÍLŮ":
     st.title("📦 Sklad náhradních dílů")
     with st.form("add_stock_form"):
         p_id = st.text_input("Kód dílu (např. SKU, OE číslo):").strip().upper()
@@ -186,3 +182,4 @@ if menu == "📦 SKLAD NÁHRADNÍCH DÍLŮ":
         st.info("Sklad je prázdný.")
     else:
         st.subheader("Aktuální zásoby na skladě")
+        tabela_sklad = [{"Kód dílu": item["pid"], "Název": item["name"], "Množství (ks)": item["quantity"], "Cena za ks": f"{item['price']} Kč"} for item in stock_data]
