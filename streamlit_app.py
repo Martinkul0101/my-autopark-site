@@ -131,7 +131,7 @@ if menu == "📋 SEZNAM VOZIDEL":
         oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])
         
         if oznacene_radky:
-            index_auta = oznacene_radky[0]
+            index_auta = oznacene_radky
             avin = df_cars.iloc[index_auta]["VIN"]
             car = db["cars"][avin]
             v_type = car.get('type', 'Osobní auto')
@@ -205,9 +205,8 @@ if menu == "📋 SEZNAM VOZIDEL":
                     st.success("Servisní záznam úspěšně uložen!")
                     st.rerun()
 
-            # Вкладка 2: Використані запчастини
+            # Вкладка 2: Використані запчастини (Відступи виправлено)
             with t2:
                 st.subheader("Přehled použitých dílů pro toto vozidlo")
                 dily_v_a = [r for r in db["repairs"] if r["vin"] == avin and r.get("part_codes")]
                 if dily_v_a:
-                    for d in dily_v_a:
