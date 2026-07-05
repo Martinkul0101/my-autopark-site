@@ -51,4 +51,12 @@ if st.session_state.view == "list":
                 supabase.table("cars").insert({"brand_model": c_model, "reg_number": c_spz, "vin": c_vin}).execute()
                 st.rerun()
 
-    for car in
+    for car in cars:
+        with st.container(border=True):
+            cols = st.columns([0.5, 4, 1.5])
+            cols[0].markdown("## 🚛")
+            cols[1].markdown(f"### {car['brand_model']} - {car['reg_number']}")
+            cols[1].caption(f"VIN: {car['vin']} | KM: {car.get('mileage', 0)}")
+            if cols[2].button("Detail vozidla", key=car['vin']):
+                st.session_state.car_vin = car['vin']
+                st
