@@ -205,7 +205,7 @@ if menu == "📋 SEZNAM VOZIDEL":
                     st.success("Servisní záznam úspěšně uložen!")
                     st.rerun()
 
-            # Вкладка 2: Використані запчастини (Відступи вирівняно строго)
+            # Вкладка 2: Використані запчастини (Помилку ліквідовано через st.dataframe)
             with t2:
                 st.subheader("Přehled použitých dílů pro toto vozidlo")
                 dily_v_a = [r for r in db["repairs"] if r["vin"] == avin and r.get("part_codes")]
