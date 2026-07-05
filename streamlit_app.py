@@ -10,7 +10,7 @@ st.set_page_config(page_title="Správa Vozového Parku", layout="centered", page
 @st.cache_resource
 def get_supabase_client() -> Client:
     # Виправлено помилку в URL та налаштовано роботу через Secrets
-    url = "https://supabase.co"
+    url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
 
