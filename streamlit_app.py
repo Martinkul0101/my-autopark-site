@@ -124,13 +124,14 @@ if menu == "📋 SEZNAM VOZIDEL":
             use_container_width=True,
             hide_index=True,
             on_select="rerun",
-            selection_mode="single"
+            selection_mode="single",
+            key="cars_df_selection"
         )
         
         oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])
         
         if oznacene_radky:
-            index_auta = oznacene_radky
+            index_auta = oznacene_radky[0]
             avin = df_cars.iloc[index_auta]["VIN"]
             car = db["cars"][avin]
             v_type = car.get('type', 'Osobní auto')
@@ -169,41 +170,44 @@ if menu == "📋 SEZNAM VOZIDEL":
             
             # Вкладка 1: Додавання сервісного запису
             with t1:
-                r_desc = st.text_area("Popis servisu / práce:")
+                col_s1, col_s2 = st.columns(2)
+                r_date = col_s1.date_input("Datum servisu:", value=datetime.today().date())
+                r_km = col_s2.number_input("Aktuální stav tachometru (km):", min_value=0, value=int(car.get('mileage', 0)) if v_type != "Přívěs" else 0, disabled=(v_type == "Přívěs"))
                 
-                # --- НОВИЙ БЛОК ДЛЯ ОЛИВИ ---
+                r_desc = st.text_area("Popis servisu / práce:", key="rep_desc")
+                
                 st.markdown("##### 🛢️ Specifikace motorového oleje (volitelné)")
                 col_oil1, col_oil2 = st.columns(2)
-                oil_type = col_oil1.text_input("Typ/Viskozita oleje (např. 5W-30 Total, 10W-40 Mobil):", key="oil_type_input").strip()
+                oil_type = col_oil1.text_input("Typ/Viskozita oleje (např. 5W-30 Total):", key="oil_type_input").strip()
                 oil_qty = col_oil2.number_input("Množství oleje (v litrech):", min_value=0.0, max_value=50.0, value=0.0, step=0.5, key="oil_qty_input")
                 
                 st.markdown("##### 📦 Náhradní díly")
-                sklad_dily = ["-- Vlastní kód / Bez odepsání --"] + [f"{item['name']} ({pid}) [Skladem: {item['quantity']}ks]" for pid, item in db["stock"].items() if item.get('quantity', 0) > 0]
-                r_sklad = st.selectbox("Použít náhradní díl ze skladu:", sklad_dily)
+                sklad_dily = ["-- Vlastní kód / Bez odepsání --"] + [f"{item['name']} ({pid}) [Skladem: {item.get('quantity', 0)}ks]" for pid, item in db["stock"].items()]
+                vybrany_dil = st.selectbox("Vybrat díl ze skladu:", sklad_dily)
+                r_parts = st.text_input("Kódy použitých dílů (ručně, pokud nejsou na skladě):")
+                r_cost = st.number_input("Celková cena opravy (Kč):", min_value=0.0, step=100.0)
                 
-                qty_to_use = 0
-                chosen_id = None
-                if r_sklad != "-- Vlastní kód / Bez odepsání --":
-                    chosen_id = r_sklad.split(" (")[-1].split(")").strip()
-                    max_qty = int(db["stock"][chosen_id]["quantity"])
-                    qty_to_use = st.number_input(f"Počet kusů (Max {max_qty} ks):", min_value=1, max_value=max_qty, value=1, step=1)
-                    r_custom = ""
-                else:
-                    r_custom = st.text_input("Vlastní kód dílu (pokud není na skladě):")
-                
-                r_km = st.number_input("Stav tachometru (km):", value=int(car.get('mileage', 0)), disabled=(v_type == "Přívěs"))
-                base_cost = st.number_input("Cena za práci / ostatní náklady (Kč):", min_value=0.0, step=100.0)
-                
-                total_cost = base_cost
-                if chosen_id:
-                    total_cost += db["stock"][chosen_id].get("price", 0.0) * qty_to_use
-                    st.info(f"💵 Celková cena včetně dílů зі складу: {total_cost:,.2f} Kč")
-                
-                st.subheader("🗓️ Plánování dalšího servisu")
-                col_next1, col_next2 = st.columns(2)
-                up_to_date = col_next1.date_input("Nové datum příštího TO:", value=datetime.today().date())
-                up_to_km = col_next2.number_input("Nový limit tachometru (km):", value=int(car.get('next_to_km', int(car.get('mileage', 0)) + 15000)), disabled=(v_type == "Přívěs"))
+                if st.button("Uložit servisní záznam", type="primary", use_container_width=True):
+                    novy_servis = {
+                        "vin": avin,
+                        "date": str(r_date),
+                        "mileage": r_km,
+                        "description": r_desc,
+                        "oil_type": oil_type,
+                        "oil_quantity": oil_qty,
+                        "part_codes": r_parts if vybrany_dil == "-- Vlastní kód / Bez odepsání --" else vybrany_dil,
+                        "cost": r_cost
+                    }
+                    db["repairs"].append(novy_servis)
+                    if v_type != "Přívěs":
+                        db["cars"][avin]["mileage"] = r_km
+                    ulozit_data()
+                    st.success("Servisní záznam úspěšně uložen!")
+                    st.rerun()
 
-                if st.button("🛠️ Zapsat servis"):
-                    if not r_desc: 
-                        st.error("Zadejte popis.")
+            # Вкладка 2: Використані запчастини
+            with t2:
+                st.subheader("Přehled použitých dílů pro toto vozidlo")
+                dily_v_a = [r for r in db["repairs"] if r["vin"] == avin and r.get("part_codes")]
+                if dily_v_a:
+                    for d in dily_v_a:
