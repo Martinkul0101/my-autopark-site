@@ -3,118 +3,104 @@ import pandas as pd
 from datetime import datetime
 from supabase import create_client, Client
 
-st.set_page_config(page_title="Správa Autoparku", layout="wide", page_icon="🚗")
-
-# Підключення до Supabase
+# --- КОНФІГУРАЦІЯ ---
+st.set_page_config(page_title="Autopark System", layout="wide", page_icon="🚚")
 url: str = st.secrets["SUPABASE_URL"]
 key: str = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
 # --- ДОПОМІЖНІ ФУНКЦІЇ ---
-def zkontrolovat_datum(d_str):
-    if not d_str: return "-"
+def get_status_icon(date_str):
+    if not date_str: return "⚪"
     try:
-        dt = datetime.strptime(d_str, "%Y-%m-%d")
-        rozdil = (dt - datetime.now()).days
-        if rozdil < 0: return f"❌ {dt.strftime('%d.%m.%Y')}"
-        elif rozdil <= 30: return f"⚠️ {dt.strftime('%d.%m.%Y')}"
-        else: return f"✅ {dt.strftime('%d.%m.%Y')}"
-    except: return "-"
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        days_left = (dt - datetime.now()).days
+        return "❌" if days_left < 0 else ("⚠️" if days_left <= 30 else "✅")
+    except: return "⚪"
 
-def zkontrolovat_udrzbu(next_date_str, next_km, current_km, is_trailer=False):
-    d_status = "-"
-    if next_date_str:
-        try:
-            dt = datetime.strptime(next_date_str, "%Y-%m-%d")
-            rozdil = (dt - datetime.now()).days
-            d_status = "❌" if rozdil < 0 else ("⚠️" if rozdil <= 30 else "✅")
-        except: pass
-    k_status = "-"
-    if not is_trailer and next_km and current_km:
-        rozdil_km = next_km - current_km
-        k_status = "❌" if rozdil_km < 0 else ("⚠️" if rozdil_km <= 2000 else "✅")
+# --- НАВІГАЦІЯ (SESSION STATE) ---
+if 'view' not in st.session_state: st.session_state.view = "list"
+if 'car_vin' not in st.session_state: st.session_state.car_vin = None
+
+# --- БІЧНА ПАНЕЛЬ ---
+st.sidebar.title("🛠 АВТОПАРК")
+if st.sidebar.button("🚗 Список авто"): 
+    st.session_state.view = "list"
+    st.rerun()
+menu = st.sidebar.radio("Навігація:", ["Головна", "Склад запчастин"])
+
+# ==========================================
+# 1. ГОЛОВНИЙ ЕКРАН (СПИСОК)
+# ==========================================
+if menu == "Головна" and st.session_state.view == "list":
+    st.title("🚚 Стручний перегляд парку")
+    cars = supabase.table("cars").select("*").execute().data
     
-    if "❌" in d_status or "❌" in k_status: return "❌ Servis nutný"
-    elif "⚠️" in d_status or "⚠️" in k_status: return "⚠️ Servis se blíží"
-    return "✅ OK"
+    # Пошук
+    car_options = {f"{c['brand_model']} ({c['reg_number']})": c['vin'] for c in cars}
+    selected = st.selectbox("🔍 Швидкий пошук:", ["-- Виберіть авто --"] + list(car_options.keys()))
+    
+    if selected != "-- Виберіть авто --":
+        st.session_state.car_vin = car_options[selected]
+        st.session_state.view = "details"
+        st.rerun()
 
-# --- НАВІГАЦІЯ ---
-if 'selected_vin' not in st.session_state:
-    st.session_state.selected_vin = None
-
-menu = st.sidebar.radio("📌 Navigace", ["🚗 Seznam vozidel", "📦 Sklad náhradních dílů"])
+    for car in cars:
+        with st.container(border=True):
+            cols = st.columns([1, 4, 3])
+            cols[0].markdown("### 🚛")
+            cols[1].markdown(f"### {car['brand_model']} - {car['reg_number']}")
+            cols[1].caption(f"Пробіг: {car['mileage']} км | VIN: {car['vin']}")
+            stk_icon = get_status_icon(car.get('stk_date'))
+            cols[2].markdown(f"**STK:** {stk_icon}")
+            if cols[2].button("Деталі", key=f"det_{car['vin']}"):
+                st.session_state.car_vin = car['vin']
+                st.session_state.view = "details"
+                st.rerun()
 
 # ==========================================
-# СЕКЦІЯ 1: СПИСОК ТА ДЕТАЛІ
+# 2. ЕКРАН ДЕТАЛЕЙ АВТО
 # ==========================================
-if menu == "🚗 Seznam vozidel":
-    if st.session_state.selected_vin:
-        # --- ДЕТАЛІ АВТО ---
-        car = supabase.table("cars").select("*").eq("vin", st.session_state.selected_vin).execute().data[0]
+elif st.session_state.view == "details":
+    car = supabase.table("cars").select("*").eq("vin", st.session_state.car_vin).execute().data[0]
+    
+    if st.button("⬅ Назад"):
+        st.session_state.view = "list"
+        st.rerun()
         
-        if st.button("⬅️ Назад до списку"):
-            st.session_state.selected_vin = None
-            st.rerun()
-            
-        st.header(f"🚖 {car['brand_model']} ({car['reg_number']})")
-        
-        tab1, tab2, tab3 = st.tabs(["📋 Info", "🔧 Nový servis", "📖 Historie"])
-        
-        with tab1:
-            st.write(f"**VIN:** {car['vin']}")
-            st.write(f"**Aktuální KM:** {car['mileage']}")
-            
-        with tab2:
-            st.subheader("Přidat servisní záznam")
-            with st.form("servis_form", clear_on_submit=True):
-                col1, col2 = st.columns(2)
-                r_date = col1.date_input("Datum:", value=datetime.now())
-                r_km = col2.number_input("Tachometr (km):", min_value=0, value=int(car.get('mileage', 0)))
-                r_desc = st.text_area("Popis práce:")
-                r_parts = st.text_input("Použité díly:")
-                r_cost = st.number_input("Cena (Kč):", min_value=0.0, step=100.0)
-                
-                if st.form_submit_button("Zapsat do historie"):
-                    supabase.table("repairs").insert({
-                        "vin": car['vin'], "date": r_date.isoformat(), "km": r_km, 
-                        "description": r_desc, "parts": r_parts, "cost": r_cost
-                    }).execute()
-                    supabase.table("cars").update({"mileage": r_km}).eq("vin", car['vin']).execute()
-                    st.success("Uloženo!")
-                    st.rerun()
+    st.title(f"📄 Карта: {car['brand_model']} ({car['reg_number']})")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("🔧 Додати сервісний запис")
+        with st.form("add_servis"):
+            r_desc = st.text_area("Popis práce:")
+            r_parts = st.text_input("Použité náhradní díly:")
+            r_cost = st.number_input("Cena (Kč):", min_value=0.0)
+            if st.form_submit_button("💾 Зберегти сервіс"):
+                supabase.table("repairs").insert({"vin": car['vin'], "description": r_desc, "parts": r_parts, "cost": r_cost}).execute()
+                st.success("Збережено!")
 
-        with tab3:
-            repairs = supabase.table("repairs").select("*").eq("vin", car['vin']).order("date", desc=True).execute().data
-            if repairs:
-                st.dataframe(pd.DataFrame(repairs), use_container_width=True)
-            else:
-                st.info("Žádná historie.")
-
-    else:
-        # --- СПИСОК ---
-        st.title("🚗 Systém správy autoparku")
-        cars = supabase.table("cars").select("*").execute().data
-        for car in cars:
-            stk = zkontrolovat_datum(car.get('stk_date', ''))
-            to = zkontrolovat_udrzbu(car.get('next_to_date', ''), car.get('next_to_km', 0), car.get('mileage', 0))
-            badge = "🔴" if ("❌" in stk or "❌" in to) else ("🟡" if ("⚠️" in stk or "⚠️" in to) else "🟢")
-            
-            with st.container(border=True):
-                c1, c2, c3 = st.columns([0.5, 4, 1.5])
-                c1.write(badge)
-                c2.write(f"**{car['brand_model']}** | SPZ: {car['reg_number']}")
-                c2.caption(f"STK: {stk} | TO: {to}")
-                if c3.button("Деталі", key=f"btn_{car['vin']}"):
-                    st.session_state.selected_vin = car['vin']
-                    st.rerun()
+    with col2:
+        st.subheader("📖 Історія")
+        hist = supabase.table("repairs").select("*").eq("vin", car['vin']).execute().data
+        st.dataframe(pd.DataFrame(hist), hide_index=True, use_container_width=True)
 
 # ==========================================
-# СЕКЦІЯ 2: СКЛАД
+# 3. ЕКРАН СКЛАДУ
 # ==========================================
-elif menu == "📦 Sklad náhradních dílů":
-    st.title("📦 Sklad náhradních dílů")
+elif menu == "Склад запчастин":
+    st.title("📦 Склад запчастин")
+    
+    # Додавання нової запчастини
+    with st.expander("➕ Додати нову запчастину на склад"):
+        with st.form("new_part"):
+            n_name = st.text_input("Назва запчастини")
+            n_qty = st.number_input("Кількість", min_value=1)
+            if st.form_submit_button("Додати"):
+                supabase.table("stock").insert({"name": n_name, "quantity": n_qty}).execute()
+                st.rerun()
+    
+    # Відображення складу
     stock = supabase.table("stock").select("*").execute().data
-    if stock:
-        st.dataframe(pd.DataFrame(stock), use_container_width=True)
-    else:
-        st.info("Sklad je prázdný.")
+    st.dataframe(pd.DataFrame(stock), use_container_width=True)
