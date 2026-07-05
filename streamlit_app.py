@@ -93,25 +93,25 @@ if menu == "📋 SEZNAM VOZIDEL":
                 "Údržba Status": zkontrolovat_udrzbu(c.get('next_to_date', ''), c.get('next_to_km', 0), curr_km, is_trailer)
             })
             
-        df_cars = pd.DataFrame(tabela_aut).sort_values(by="Typ")
+df_cars = pd.DataFrame(tabela_aut).sort_values(by="Typ")
 id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, 
 on_select="rerun", selection_mode="single", key="cars_df_select")
 oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])        
-        if oznacene_radky:
-            avin = df_cars.iloc[oznacene_radky]["VIN"].values[0]
-            car = next(c for c in cars_data if c["vin"] == avin)
-            v_type = car.get('type', 'Osobní auto')
-            st.write("---")
-            st.header(f"📇 [{v_type}] {car.get('brand_model', 'Neznámé')}")
-            m1, m2 = st.columns(2)
-            m1.metric("SPZ", car.get('reg_number', '—'))
-            m2.metric("Tachometr", "— (Přívěs)" if v_type == "Přívěs" else f"{int(car.get('mileage', 0)):,} km".replace(",", " "))
+if oznacene_radky:
+avin = df_cars.iloc[oznacene_radky]["VIN"].values[0]
+car = next(c for c in cars_data if c["vin"] == avin)
+v_type = car.get('type', 'Osobní auto')
+st.write("---")
+st.header(f"📇 [{v_type}] {car.get('brand_model', 'Neznámé')}")
+m1, m2 = st.columns(2)
+m1.metric("SPZ", car.get('reg_number', '—'))
+m2.metric("Tachometr", "— (Přívěs)" if v_type == "Přívěs" else f"{int(car.get('mileage', 0)):,} km".replace(",", " "))
             
-            st.markdown("### 🔧 Nový servisní záznam")
-            col_s1, col_s2 = st.columns(2)
-            r_date = col_s1.date_input("Datum servisu:", value=datetime.today().date())
-            r_km = col_s2.number_input("Aktuální stav tachometru (km):", min_value=0, value=int(car.get('mileage', 0)) if v_type != "Přívěs" else 0, disabled=(v_type == "Přívěs"))
-            r_desc = st.text_area("Popis servisu / práce:", key="rep_desc")
+st.markdown("### 🔧 Nový servisní záznam")
+col_s1, col_s2 = st.columns(2)
+r_date = col_s1.date_input("Datum servisu:", value=datetime.today().date())
+r_km = col_s2.number_input("Aktuální stav tachometru (km):", min_value=0, value=int(car.get('mileage', 0)) if v_type != "Přívěs" else 0, disabled=(v_type == "Přívěs"))
+r_desc = st.text_area("Popis servisu / práce:", key="rep_desc")
             
             res_stock = supabase.table("stock").select("*").execute()
             stock_data = res_stock.data if res_stock.data else []
