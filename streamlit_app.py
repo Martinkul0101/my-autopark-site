@@ -106,7 +106,10 @@ if menu == "🚗 Seznam vozidel":
             df_cars, 
             use_container_width=True, 
             hide_index=True,
-            disabled=["VIN", "Značka a model", "SPZ", "Typ", "Tachometr (km)", "STK Status", "Tachograf", "Údržba Status"]
+            disabled=[
+                "VIN", "Značka a model", "SPZ", "Typ", 
+                "Tachometr (km)", "STK Status", "Tachograf", "Údržba Status"
+            ]
         )
         
         vybrane_indexy = id_vyberu[id_vyberu["Vybrat"] == True].index.tolist()
@@ -207,7 +210,12 @@ if menu == "🚗 Seznam vozidel":
                                 "cost": "Cena (Kč)"
                             })
                             cols_to_show = ["Datum", "Tachometr", "Popis práce", "Použité díly", "Cena (Kč)"]
-                            st.dataframe(df_hist[cols_to_show], use_container_width=True, hide_index=True)
+                            
+                            st.dataframe(
+                                df_hist[cols_to_show], 
+                                use_container_width=True, 
+                                hide_index=True
+                            )
                             
                     except Exception as e:
                         st.error(f"Chyba při načítání historie: {e}")
@@ -230,4 +238,33 @@ elif menu == "📦 Sklad náhradních dílů":
     else:
         df_stock = pd.DataFrame(stock_data)
         display_cols = {'name': 'Název dílu', 'quantity': 'Počet kusů skladem'}
-        st.dataframe(df_stock.rename(columns=display_cols)[['Název dílu', 'Počet kusů skladem']], use_container_width=True, hide_index=
+        
+        # Виправлений і розбитий на рядки код для таблиці складу
+        st.dataframe(
+            df_stock.rename(columns=display_cols)[['Název dílu', 'Počet kusů skladem']], 
+            use_container_width=True, 
+            hide_index=True
+        )
+
+    st.write("---")
+    st.markdown("### ➕ Přidat nový díl")
+    col_n1, col_n2 = st.columns(2)
+    new_part_name = col_n1.text_input("Název dílu:")
+    new_part_qty = col_n2.number_input("Množství (ks):", min_value=1, value=1, step=1)
+    
+    if st.button("Uložit do skladu", type="primary"):
+        if new_part_name.strip() != "":
+            try:
+                existujici = next((item for item in stock_data if item['name'].lower() == new_part_name.lower()), None)
+                if existujici:
+                    filter_col = "id" if "id" in existujici else "name"
+                    supabase.table("stock").update({"quantity": existujici['quantity'] + new_part_qty}).eq(filter_col, existujici[filter_col]).execute()
+                else:
+                    supabase.table("stock").insert({"name": new_part_name, "quantity": new_part_qty}).execute()
+                
+                st.success("Sklad byl úspěšně aktualizován.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Chyba při aktualizaci skladu: {e}")
+        else:
+            st.warning("⚠️ Zadejte prosím platný název dílu.")
