@@ -6,10 +6,15 @@ from supabase import create_client, Client
 # Налаштування сторінки
 st.set_page_config(page_title="Správa Vozového Parku", layout="centered", page_icon="🚚")
 
-# --- ПІДКЛЮЧЕННЯ SUPABASE ---
-url = "https://blrytxiopxvpymdhlhfg.supabase.co"
-key = "sb_publishable_WQzHTKZloeIL25a8YY8jEw_rA7nzUV3"
-supabase: Client = create_client(url, key)
+# --- ПІДКЛЮЧЕННЯ SUPABASE ІЗ ЗАХИСТОМ ВІД ЗБОЇВ ---
+@st.cache_resource
+def get_supabase_client() -> Client:
+    # Виправлено помилку в URL та налаштовано роботу через Secrets
+    url = "https://supabase.co"
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+supabase = get_supabase_client()
 
 # --- БІЧНЕ МЕНЮ ---
 st.sidebar.title("🚚 AUTOPARK")
@@ -131,9 +136,7 @@ if menu == "📋 SEZNAM VOZIDEL":
                 tabela_dilu = [{"Datum": d.get("date", "—"), "Použité díly": d.get("part_codes", "—"), "Popis opravy": d.get("description", "—"), "Cena": f"{d.get('cost', 0.0)} Kč"} for d in hist_oprav]
                 st.dataframe(pd.DataFrame(tabela_dilu), use_container_width=True, hide_index=True)
             else:
-                st.info("Žádná historie oprav.")
-
-# =================================================================
+                st.info("Žádná historie oprav.")# =================================================================
 # ЕКРАН 2: ➕ PŘIDAT VOZIDLO
 # =================================================================
 elif menu == "➕ PŘIDAT VOZIDLO":
@@ -149,36 +152,62 @@ elif menu == "➕ PŘIDAT VOZIDLO":
         f_next_date = st.date_input("Datum příštího TO:")
         f_next_km = st.number_input("Stav km pro příští TO:", min_value=0, value=0)
         submitted = st.form_submit_button("Uložit vozidlo", type="primary")
+        
         if submitted:
-            if not f_vin: st.error("VIN kód je povinný!")
+            if not f_vin:
+                st.error("VIN kód je povinný!")
             else:
-                novy_auto = {"vin": f_vin, "type": f_type, "brand_model": f_brand, "reg_number": f_spz, "mileage": int(f_km) if f_type != "Přívěs" else 0, "stk_date": str(f_stk), "tachograf_date": str(f_tach) if f_type in ["Tahač", "Autobus"] else "—", "next_to_date": str(f_next_date), "next_to_km": int(f_next_km)}
-                supabase.table("cars").upsert(novy_auto).execute()
-                st.success(f"Vozidlo {f_brand} úspěšně přidáno do cloudu!")
-                st.rerun()
+                novy_auto = {
+                    "vin": f_vin, "type": f_type, "brand_model": f_brand, 
+                    "reg_number": f_spz, "mileage": int(f_km), "stk_date": str(f_stk),
+                    "tachograf_date": str(f_tach) if f_type in ["Tahač", "Autobus"] else None,
+                    "next_to_date": str(f_next_date), "next_to_km": int(f_next_km)
+                }
+                try:
+                    supabase.table("cars").insert(novy_auto).execute()
+                    st.success("Vozidlo úspěšně uloženo!")
+                except Exception as e:
+                    st.error(f"Chyba při ukládání: {e}")
 
 # =================================================================
 # ЕКРАН 3: 📦 SKLAD NÁHRADNÍCH DÍLŮ
 # =================================================================
 elif menu == "📦 SKLAD NÁHRADNÍCH DÍLŮ":
     st.title("📦 Sklad náhradních dílů")
+    
+    st.subheader("➕ Naskladnit novou položku")
     with st.form("add_stock_form"):
-        p_id = st.text_input("Kód dílu (např. SKU, OE číslo):").strip().upper()
-        p_name = st.text_input("Název dílu:")
-        p_qty = st.number_input("Množství (ks):", min_value=1, value=1)
-        p_price = st.number_input("Nákupní cena za ks (Kč):", min_value=0.0, step=10.0)
-        stock_submitted = st.form_submit_button("Naskladnit")
+        f_pid = st.text_input("Kód dílu (např. SKU, OE číslo):").strip().upper()
+        f_name = st.text_input("Název dílu:")
+        f_qty = st.number_input("Množství (ks):", min_value=1, value=1)
+        f_price = st.number_input("Nákupní cena za ks (Kč):", min_value=0.0, value=0.0, step=10.0)
+        stock_submitted = st.form_submit_button("Uložit položku", type="primary")
+        
         if stock_submitted:
-            if not p_id or not p_name: st.error("Kód a název jsou povinné!")
+            if not f_pid or not f_name:
+                st.error("Kód a název dílu jsou povinné!")
             else:
-                novy_dil = {"pid": p_id, "name": p_name, "quantity": int(p_qty), "price": float(p_price)}
-                supabase.table("stock").upsert(novy_dil).execute()
-                st.success(f"Díl {p_name} naskladněn v Supabase!")
-                st.rerun()
-                
+                novy_dil = {
+                    "pid": f_pid, "name": f_name, 
+                    "quantity": int(f_qty), "price": float(f_price)
+                }
+                try:
+                    supabase.table("stock").insert(novy_dil).execute()
+                    st.success("Položka úspěšně naskladněna!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Chyba při ukládání na sklad: {e}")
+                    
+    st.write("---")
+    st.subheader("📋 Aktuální stav skladu")
     res_stock = supabase.table("stock").select("*").execute()
     stock_data = res_stock.data if res_stock.data else []
-    if not stock_data:
-        st.info("Sklad je prázdný.")
+    
+    if stock_data:
+        tabela_skladu = [{
+            "Kód dílu": item.get("pid"), "Název dílu": item.get("name"),
+            "Množství (ks)": item.get("quantity"), "Nákupní cena (Kč)": f"{item.get('price', 0.0)} Kč"
+        } for item in stock_data]
+        st.dataframe(pd.DataFrame(tabela_skladu), use_container_width=True, hide_index=True)
     else:
-        st.subheader("Aktuální zásoby na skladě")
+        st.info("Sklad je prázdný.")
