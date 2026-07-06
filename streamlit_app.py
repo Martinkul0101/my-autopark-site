@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+from datetime import datetime  # <--- ЦЕЙ РЯДОК МАЄ БУТИ ДОДАНИЙ
 
 # --- НАЛАШТУВАННЯ ---
 st.set_page_config(page_title="AutoCRM Pro", layout="wide", page_icon="🔧")
