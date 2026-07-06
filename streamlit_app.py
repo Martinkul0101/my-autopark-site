@@ -1,115 +1,76 @@
-import streamlit as st
-import pandas as pd
+ import streamlit as st
 import json
 import os
 from datetime import datetime
 
-st.set_page_config(page_title="Správa Vozového Parku", layout="wide", page_icon="🚚")
-DB_FILE = "database.json"
+# --- НАЛАШТУВАННЯ ---
+st.set_page_config(page_title="AutoCRM Pro", layout="wide", page_icon="🔧")
 
-def load_data():
-    if not os.path.exists(DB_FILE):
-        return {"cars": [], "repairs": []}
-    try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return {"cars": [], "repairs": []}
+# --- БАЗА ДАНИХ ---
+def load_db():
+    if not os.path.exists("database.json"):
+        return {"clients": [], "cars": [], "repairs": []}
+    with open("database.json", "r") as f:
+        data = json.load(f)
+        data.setdefault("clients", []); data.setdefault("cars", []); data.setdefault("repairs", [])
+        return data
 
-def save_data(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+def save_db(db):
+    with open("database.json", "w") as f: json.dump(db, f, indent=4)
 
-db = load_data()
+db = load_db()
 
-st.sidebar.markdown("## 🚚 AUTOPARK")
-menu = st.sidebar.radio("NAVIGACE", ["📋 SEZNAM VOZIDEL", "➕ PŘIDAT VOZIDLO"])
+# --- МЕНЮ ---
+st.title("🔧 AutoCRM Professional")
+tabs = st.tabs(["👥 Klienti", "🚗 Vozový park", "➕ Nový záznam"])
 
-if menu == "📋 SEZNAM VOZIDEL":
-    st.title("📋 Seznam vozidel")
-    if not db["cars"]:
-        st.info("Zatím nejsou žádná vozidla.")
-    else:
-        selected_idx = st.selectbox("Vyberte vozidlo:", range(len(db["cars"])), 
-                                     format_func=lambda i: f"{db['cars'][i]['brand_model']} ({db['cars'][i]['reg_number']})")
-                # Визначаємо авто та історію
-        car = db["cars"][selected_idx]
-        st.header(f"📇 {car.get('brand_model')} - {car.get('reg_number')}")
-        history = [r for r in db["repairs"] if r["vin"] == car["vin"]]
+# 1. ВКЛАДКА КЛІЄНТІВ
+with tabs[0]:
+    st.header("Správa klientů")
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        with st.form("client_form"):
+            name = st.text_input("Jméno klienta")
+            phone = st.text_input("Telefon")
+            if st.form_submit_button("Přidat klienta"):
+                db["clients"].append({"id": len(db["clients"])+1, "name": name, "phone": phone})
+                save_db(db); st.rerun()
+    with col2:
+        for c in db["clients"]:
+            with st.expander(f"👤 {c['name']}"):
+                cars = [ (i, car) for i, car in enumerate(db["cars"]) if car.get("owner_id") == c["id"]]
+                for i, car in cars:
+                    st.write(f"🚗 {car['brand_model']} ({car['reg_number']})")
 
-                # Визначаємо історію
-        history = [r for r in db["repairs"] if r["vin"] == car["vin"]]
-
-        # 4 вкладки: Informace, Servis, Údržba, Historie
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Informace", "🔧 Servis", "🛢️ Údržba", "📜 Historie"])
-
-        with tab1:
-            st.subheader("🛠 Technické údaje")
-            col1, col2 = st.columns(2)
+# 2. ВКЛАДКА АВТО
+with tabs[1]:
+    st.header("Vozový park")
+    for i, car in enumerate(db["cars"]):
+        with st.expander(f"🚗 {car['brand_model']} | {car['reg_number']}"):
+            st.subheader("🛠 Historie servisů")
+            repairs = [r for r in db.get("repairs", []) if r.get("car_index") == i]
+            for r in repairs:
+                st.info(f"📅 {r['date']}: {r['desc']} ({r['cost']} Kč)")
             
-            # --- ОСНОВНІ ДАНІ ---
-            col1.write(f"**VIN:** {car.get('vin')}")
-            col1.write(f"**STK do:** {car.get('stk_date', '—')}")
-            
-            # --- ОЛИВИ ТА РІДИНИ ---
-            col2.write(f"**Motorový olej:** {car.get('oil_motor', '—')}")
-            col2.write(f"**Olej v převodovce:** {car.get('oil_gear', '—')}")
-            col2.write(f"**Olej v diferenciálu:** {car.get('oil_diff', '—')}")
-            col2.write(f"**Příští údržba:** {car.get('next_to_km', '—')} km")
+            with st.form(f"repair_form_{i}"):
+                desc = st.text_input("Popis práce")
+                cost = st.number_input("Cena", min_value=0)
+                if st.form_submit_button("Přidat záznam"):
+                    db.setdefault("repairs", []).append({"car_index": i, "date": str(datetime.today().date()), "desc": desc, "cost": cost})
+                    save_db(db); st.rerun()
 
-            st.divider()
-            
-            # Форма для редагування (якщо треба змінити параметри)
-            with st.expander("✏️ Upravit informace"):
-                with st.form(key=f"edit_all_{car['vin']}"):
-                    new_model = st.text_input("Značka a model", value=car.get('brand_model', ''))
-                    new_next_km = st.number_input("Příští údržba (km)", value=int(car.get('next_to_km', 0)))
-                    
-                    # Додаємо поля для олив у форму редагування
-                    new_oil_m = st.text_input("Motorový olej", value=car.get('oil_motor', ''))
-                    new_oil_g = st.text_input("Olej v převodovce", value=car.get('oil_gear', ''))
-                    new_oil_d = st.text_input("Olej v diferenciálu", value=car.get('oil_diff', ''))
-                    
-                    if st.form_submit_button("Uložit změny"):
-                        db["cars"][selected_idx].update({
-                            "brand_model": new_model,
-                            "next_to_km": new_next_km,
-                            "oil_motor": new_oil_m,
-                            "oil_gear": new_oil_g,
-                            "oil_diff": new_oil_d
-                        })
-                        save_data(db)
-                        st.rerun()
-
-
-        with tab2:
-            st.subheader("🔧 Nový servisní záznam")
-            
-            with st.form(key=f"repair_form_detailed_{car['vin']}"):
-                # Основні дані
-                col_a, col_b = st.columns(2)
-                desc = col_a.text_input("Popis práce")
-                new_km = col_b.number_input("Stav tachometru", value=int(car.get('mileage', 0)))
-                
-                # Запчастини
-                parts = st.text_area("Použité запчастини (název a množství)")
-                
-                # Блок для планового ТО
-                st.markdown("---")
-                st.write("### 🛢️ Záznam o výměně kapalin (volitelné)")
-                col1, col2, col3 = st.columns(3)
-                oil_m_qty = col1.text_input("Motorový olej (litry)")
-                oil_g_qty = col2.text_input("Převodovka (litry)")
-                oil_d_qty = col3.text_input("Diferenciál (litry)")
-                
-                cost = st.number_input("Celková cena (Kč)", min_value=0)
-                
-                if st.form_submit_button("Uložit servisní záznam"):
-                    # Формуємо текст запису
-                    full_description = f"{desc} | Spotřebováno: {parts}"
-                    if any([oil_m_qty, oil_g_qty, oil_d_qty]):
-                        full_description += f" | Oleje: Motor: {oil_m_qty or '0'}l, Převodovka: {oil_g_qty or '0'}l, Dif: {oil_d_qty or '0'}l"
-                    
+# 3. ВКЛАДКА ДОДАВАННЯ
+with tabs[2]:
+    st.header("Přidat nové auto")
+    with st.form("car_form"):
+        model = st.text_input("Značka a model")
+        spz = st.text_input("SPZ")
+        client_options = {c['name']: c['id'] for c in db["clients"]}
+        selected = st.selectbox("Majitel", list(client_options.keys()))
+        if st.form_submit_button("Uložit"):
+            db["cars"].append({"brand_model": model, "reg_number": spz, "owner_id": client_options[selected]})
+            save_db(db); st.rerun()
+                   
                     db["repairs"].append({
                         "vin": car["vin"], 
                         "date": str(datetime.today().date()), 
