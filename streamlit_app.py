@@ -27,6 +27,19 @@ def save_db(db):
 db = load_db()
 
 st.title("🚗 AutoGarage Management")
+# Поле для пошуку
+search_query = st.text_input("🔍 Пошук за номером (SPZ) або маркою", "").lower()
+
+# Фільтрація списку авто
+filtered_cars = [
+    car for car in db["cars"] 
+    if search_query in car['brand'].lower() or search_query in car['spz'].lower()
+]
+
+# Список авто (тепер використовуємо filtered_cars замість db["cars"])
+for i, car in enumerate(filtered_cars):
+    # ... далі йде весь ваш код відображення карток ...
+    
 
 # Бічна панель для додавання авто
 with st.sidebar:
