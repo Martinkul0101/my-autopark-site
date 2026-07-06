@@ -47,10 +47,42 @@ with tabs[0]:
                 else: st.warning("Žádná vozidla.")
 
 # 2. ВКЛАДКА АВТО
+# 2. ВКЛАДКА АВТО (ОНОВЛЕНА)
 with tabs[1]:
     st.header("Vozový park")
-    for car in db["cars"]:
-        st.write(f"🚗 {car['brand_model']} | SPZ: {car['reg_number']}")
+    
+    # Виводимо список авто у вигляді кнопок для вибору
+    for i, car in enumerate(db["cars"]):
+        with st.expander(f"🚗 {car['brand_model']} | {car['reg_number']}"):
+            st.write(f"**VIN:** {car.get('vin', 'Nezadáno')}")
+            
+            # --- РЕДАГУВАННЯ ІНФО ---
+            if st.checkbox(f"Upravit informace o {car['reg_number']}", key=f"edit_{i}"):
+                with st.form(f"edit_form_{i}"):
+                    new_model = st.text_input("Značka a model", value=car['brand_model'])
+                    new_vin = st.text_input("VIN", value=car.get('vin', ''))
+                    if st.form_submit_button("Uložit změny"):
+                        db["cars"][i].update({"brand_model": new_model, "vin": new_vin})
+                        save_db(db); st.rerun()
+
+            # --- ІСТОРІЯ РОБІТ ---
+            st.subheader("🛠 Historie servisů")
+            repairs = [r for r in db.get("repairs", []) if r.get("car_index") == i]
+            for r in repairs:
+                st.info(f"📅 {r['date']}: {r['desc']} (Cena: {r['cost']} Kč)")
+
+            # --- ДОДАВАННЯ НОВОГО ЗАПИСУ ---
+            with st.expander("➕ Přidat záznam o servisu"):
+                with st.form(f"repair_form_{i}"):
+                    desc = st.text_input("Popis práce")
+                    parts = st.text_area("Použité díly / Oleje")
+                    cost = st.number_input("Cena (Kč)", min_value=0)
+                    if st.form_submit_button("Uložit záznam"):
+                        db.setdefault("repairs", []).append({
+                            "car_index": i, "date": str(datetime.today().date()),
+                            "desc": desc, "parts": parts, "cost": cost
+                        })
+                        save_db(db); st.rerun()
 
 # 3. ВКЛАДКА ДОДАВАННЯ
 with tabs[2]:
