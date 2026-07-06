@@ -37,12 +37,71 @@ def get_status_emoji(days):
     return "✅"
 
 # --- ЕКРАН 1: SEZNAM VOZIDEL ---
+    # --- ЕКРАН 1: SEZNAM VOZIDEL ---
 if menu == "📋 SEZNAM VOZIDEL":
     st.title("📋 Seznam vozidel")
     
     if not db["cars"]:
         st.info("Zatím nejsou žádná vozidla.")
     else:
+        # Вибір авто
+        selected_car_idx = st.selectbox("Vyberte vozidlo:", range(len(db["cars"])), 
+                                        format_func=lambda x: f"{db['cars'][x]['brand_model']} ({db['cars'][x]['reg_number']})")
+        
+        car = db["cars"][selected_car_idx]
+        st.header(f"📇 {car.get('brand_model')} - {car.get('reg_number')}")
+
+        # СТВОРЮЄМО ВКЛАДКИ
+        tab1, tab2, tab3 = st.tabs(["📊 Informace", "🔧 Přidat servis", "📜 Historie"])
+
+        with tab1:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("VIN", car.get("vin"))
+            col2.metric("Tachometr", f"{car.get('mileage')} km")
+            col3.metric("STK do", car.get("stk_date"))
+
+        with tab2:
+            st.subheader("Nový servisní záznam")
+            with st.form(f"repair_form_{car['vin']}"):
+                col_a, col_b = st.columns(2)
+                desc = col_a.text_input("Popis práce")
+                parts = col_b.text_input("Díly / Oleje")
+                cost = col_a.number_input("Cena (Kč)", min_value=0)
+                new_km = col_b.number_input("Stav tachometru", value=int(car.get('mileage', 0)))
+                
+                if st.form_submit_button("Uložit servis"):
+                    db["repairs"].append({
+                        "vin": car["vin"],
+                        "date": str(datetime.today().date()),
+                        "description": desc,
+                        "parts": parts,
+                        "cost": cost,
+                        "mileage": new_km
+                    })
+                    db["cars"][selected_car_idx]["mileage"] = new_km
+                    save_data(db)
+                    st.success("Záznam uložen!")
+                    st.rerun()
+
+        with tab3:
+            st.subheader("Historie údržby")
+            history = [r for r in db["repairs"] if r["vin"] == car["vin"]]
+            
+            if history:
+                for i, record in enumerate(reversed(history)):
+                    with st.expander(f"📅 {record['date']} — {record['description']} ({record['cost']} Kč)"):
+                        st.write(f"**Díly/Olej:** {record['parts']}")
+                        st.write(f"**Stav tachometru:** {record['mileage']} km")
+                        
+                        if st.button(f"Smazat záznam", key=f"del_{record['date']}_{i}"):
+                            db["repairs"].remove(record)
+                            save_data(db)
+                            st.success("Smazáno!")
+                            st.rerun()
+            else:
+                st.info("Žádná historie.")
+
+
         # Створюємо гарний дашборд
         df_cars = pd.DataFrame(db["cars"])
         
