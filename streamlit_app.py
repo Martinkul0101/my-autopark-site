@@ -40,7 +40,7 @@ if menu == "📋 SEZNAM VOZIDEL":
         # Створюємо вкладки
         tab1, tab2, tab3 = st.tabs(["📊 Informace", "🔧 Přidat servis", "📜 Historie"])
 
-       with tab1:
+        with tab1:
             st.subheader("🛠 Technické údaje")
             col1, col2 = st.columns(2)
             col1.write(f"**VIN:** {car.get('vin')}")
