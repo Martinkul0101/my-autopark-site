@@ -37,21 +37,39 @@ if menu == "📋 SEZNAM VOZIDEL":
 
         tab1, tab2, tab3 = st.tabs(["📊 Informace", "🔧 Přidat servis", "📜 Historie"])
 
-        with tab1:
-            col1, col2, col3 = st.columns(3)
-            col1.metric("VIN", car.get("vin"))
-            col2.metric("Tachometr", f"{car.get('mileage')} km")
-            col3.metric("STK do", car.get("stk_date"))
+                with tab1:
+            st.subheader("🛠 Technické údaje a údržba")
             
+            # Відображення даних (використовуємо st.expander для чистоти)
+            col1, col2 = st.columns(2)
+            col1.write(f"**Motorový olej:** {car.get('oil_motor', '—')}")
+            col1.write(f"**Olej v převodovce:** {car.get('oil_gear', '—')}")
+            col1.write(f"**Olej v diferenciálu:** {car.get('oil_diff', '—')}")
+            
+            col2.write(f"**Příští údržba (km):** {car.get('next_to_km', '—')}")
+            col2.write(f"**STK do:** {car.get('stk_date')}")
+            col2.write(f"**Pojištění do:** {car.get('insurance_date', '—')}")
+
             st.divider()
-            st.subheader("📌 Naposledy použité díly")
-            history = [r for r in db["repairs"] if r["vin"] == car["vin"]]
-            if history:
-                last = history[-1]
-                st.info(f"Servis ze dne {last['date']}")
-                st.write(f"**Díly:** {last['parts']}")
-            else:
-                st.write("Žádná historie.")
+            # Форма редагування технічних даних
+            with st.expander("✏️ Upravit technické údaje"):
+                with st.form(f"edit_tech_{car['vin']}"):
+                    e_oil_m = st.text_input("Motorový olej", value=car.get('oil_motor', ''))
+                    e_oil_g = st.text_input("Olej v převodovce", value=car.get('oil_gear', ''))
+                    e_oil_d = st.text_input("Olej v diferenciálu", value=car.get('oil_diff', ''))
+                    e_next_km = st.number_input("Příští údržba při (km)", value=int(car.get('next_to_km', 0)))
+                    
+                    if st.form_submit_button("Uložit změny"):
+                        # Оновлюємо дані у словнику car
+                        db["cars"][selected_idx].update({
+                            "oil_motor": e_oil_m,
+                            "oil_gear": e_oil_g,
+                            "oil_diff": e_oil_d,
+                            "next_to_km": e_next_km
+                        })
+                        save_data(db)
+                        st.success("Údaje byly aktualizovány!")
+                        st.rerun()
 
         with tab2:
             st.subheader("Nový servisní záznam")
