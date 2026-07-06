@@ -62,7 +62,7 @@ if menu == "📋 SEZNAM VOZIDEL":
         with tab2:
             st.subheader("Nový servisní záznam")
             if history:
-                if st.button("🔄 Předvyplnit z posledního servisu"):
+                 if st.button("🔄 Předvyplnit z posledního servisu", key=f"fill_{car['vin']}"):
                     st.session_state.last_parts = history[-1]['parts']
                     st.rerun()
             with st.form(f"repair_form_{car['vin']}"):
