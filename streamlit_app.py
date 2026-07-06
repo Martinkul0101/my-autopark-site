@@ -31,7 +31,7 @@ def save_db(db):
 st.title("🔧 AutoCRM Professional")
 tabs = st.tabs(["👥 Klienti", "🚗 Vozový park", "➕ Nový záznam"])
 
-# 1. ВКЛАДКА КЛІЄНТІВ
+# 1. ВКЛАДКА КЛІЄНТІВ (ОНОВЛЕНА)
 with tabs[0]:
     st.header("Správa klientů")
     col1, col2 = st.columns([1, 2])
@@ -48,9 +48,20 @@ with tabs[0]:
         st.write("### Seznam registrovaných klientů")
         if not db["clients"]:
             st.info("Zatím žádní klienti.")
+        
         for c in db["clients"]:
-            st.success(f"👤 {c['name']} | 📞 {c['phone']}")
-
+            # Створюємо розкривний список для кожного клієнта
+            with st.expander(f"👤 {c['name']} (📞 {c['phone']})"):
+                # Знаходимо авто цього клієнта
+                client_cars = [car for car in db["cars"] if car.get("owner_id") == c["id"]]
+                
+                if client_cars:
+                    st.write("**Vozidla klienta:**")
+                    for car in client_cars:
+                        st.markdown(f"- 🚗 **{car['brand_model']}** | SPZ: {car['reg_number']}")
+                else:
+                    st.warning("Klient zatím nemá žádná vozidla.")
+                    
 # 2. ВКЛАДКА АВТО
 with tabs[1]:
     st.header("Vozový park")
