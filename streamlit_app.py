@@ -38,14 +38,35 @@ with st.sidebar:
 # Список авто у вигляді сучасних карток
 for i, car in enumerate(db["cars"]):
     with st.container():
-        st.markdown(f'<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="card">', unsafe_allow_html=True)
         col1, col2 = st.columns([3, 1])
         col1.subheader(f"{car['brand']} | {car['spz']}")
         
         if col2.button("🗑 Smazat", key=f"del_{i}"):
-            db["cars"].pop(i); save_db(db); st.rerun()
+            db["cars"].pop(i)
+            save_db(db)
+            st.rerun()
             
         with st.expander("🛠 Detaily a servis"):
+            # Редагування
+            new_brand = st.text_input("Změnit značku", value=car['brand'], key=f"brand_{i}")
+            if st.button("Uložit změny", key=f"save_{i}"):
+                db["cars"][i]['brand'] = new_brand
+                save_db(db)
+                st.rerun()
+            
+            # Роботи
+            st.write("---")
+            desc = st.text_input("Nová práce", key=f"desc_{i}")
+            if st.button("Přidat záznam", key=f"add_{i}"):
+                db["cars"][i]['history'].append(f"{datetime.now().strftime('%d.%m.%Y')}: {desc}")
+                save_db(db)
+                st.rerun()
+            
+            for h in car['history']: 
+                st.info(h)
+        st.markdown('</div>', unsafe_allow_html=True)
+
             # Редагування
             new_brand = st.text_input("Změnit značku", value=car['brand'], key=f"brand_{i}")
             if st.button("Uložit změny", key=f"save_{i}"):
