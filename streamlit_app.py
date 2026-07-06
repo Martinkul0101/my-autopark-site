@@ -16,7 +16,7 @@ db = load()
 
 st.title("🚗 AutoGarage Management")
 
-# Boční panel
+# Додавання
 with st.sidebar:
     st.header("➕ Přidat auto")
     with st.form("new"):
@@ -28,31 +28,38 @@ with st.sidebar:
             save(db)
             st.rerun()
 
-# Vyhledávání
-src = st.text_input("🔍 Hledat (podle značky nebo SPZ)", "")
-
+src = st.text_input("🔍 Hledat", "")
 filt = [c for c in db["cars"] if src.lower() in c['brand'].lower() or src.lower() in c['spz'].lower()]
 
-# Zobrazení
+# Відображення та редагування
 for car in filt:
     idx = db["cars"].index(car)
     with st.container():
-        st.subheader(f"{car['brand']} | {car['spz']} | VIN: {car.get('vin', 'N/A')}")
-        if st.button("Smazat auto", key=f"del_{idx}"):
-            db["cars"].pop(idx)
-            save(db)
-            st.rerun()
+        st.subheader(f"{car['brand']} | {car['spz']}")
         
-        with st.expander("🛠 Detaily a servisní historie"):
+        with st.expander("📝 Upravit informace / Servis"):
+            # Редагування основних даних
+            new_brand = st.text_input("Značka", value=car['brand'], key=f"b_{idx}")
+            new_spz = st.text_input("SPZ", value=car['spz'], key=f"n_{idx}")
+            new_vin = st.text_input("VIN kód", value=car.get('vin', ''), key=f"v_{idx}")
+            
+            if st.button("Uložit změny dat", key=f"save_data_{idx}"):
+                db["cars"][idx].update({"brand": new_brand, "spz": new_spz, "vin": new_vin})
+                save(db); st.rerun()
+            
+            st.write("---")
+            # Роботи
             wrk = st.text_input("Provedená práce", key=f"w_{idx}")
             km = st.number_input("Stav tachometru (km)", min_value=0, key=f"km_{idx}")
-            
             if st.button("Uložit záznam", key=f"s_{idx}"):
-                datum = datetime.now().strftime('%d.%m.%Y')
-                zaznam = f"{datum} | {km} km | {wrk}"
+                zaznam = f"{datetime.now().strftime('%d.%m.%Y')} | {km} km | {wrk}"
                 db["cars"][idx]['history'].append(zaznam)
-                save(db)
-                st.rerun()
+                save(db); st.rerun()
             
-            for h in car['history']: 
-                st.info(h)
+            for h in car['history']: st.info(h)
+            
+            st.write("---")
+            # Видалення
+            if st.button("🗑 Smazat celé auto", key=f"del_{idx}"):
+                db["cars"].pop(idx)
+                save(db); st.rerun()
