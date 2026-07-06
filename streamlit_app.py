@@ -5,33 +5,28 @@ import os
 # --- НАЛАШТУВАННЯ ---
 st.set_page_config(page_title="AutoCRM Pro", layout="wide", page_icon="🔧")
 
-# --- БД З АВТО-ВИПРАВЛЕННЯМ ---
+# --- ФУНКЦІЇ БАЗИ ДАНИХ ---
 def load_db():
     if not os.path.exists("database.json"):
-        initial_data = {"clients": [], "cars": [], "repairs": []}
-        with open("database.json", "w") as f:
-            json.dump(initial_data, f)
+        initial_data = {"clients": [], "cars": []}
+        with open("database.json", "w") as f: json.dump(initial_data, f)
         return initial_data
-    
     with open("database.json", "r") as f:
         data = json.load(f)
-        # Гарантуємо наявність ключів
         if "clients" not in data: data["clients"] = []
         if "cars" not in data: data["cars"] = []
-        if "repairs" not in data: data["repairs"] = []
         return data
+
+def save_db(db):
+    with open("database.json", "w") as f: json.dump(db, f, indent=4)
 
 db = load_db()
 
-def save_db(db):
-    with open("database.json", "w") as f:
-        json.dump(db, f, indent=4)
-
-# --- МЕНЮ ---
+# --- ІНТЕРФЕЙС ---
 st.title("🔧 AutoCRM Professional")
 tabs = st.tabs(["👥 Klienti", "🚗 Vozový park", "➕ Nový záznam"])
 
-# 1. ВКЛАДКА КЛІЄНТІВ (ОНОВЛЕНА)
+# 1. ВКЛАДКА КЛІЄНТІВ
 with tabs[0]:
     st.header("Správa klientů")
     col1, col2 = st.columns([1, 2])
@@ -42,33 +37,20 @@ with tabs[0]:
             if st.form_submit_button("Přidat klienta"):
                 new_id = len(db["clients"]) + 1
                 db["clients"].append({"id": new_id, "name": name, "phone": phone})
-                save_db(db)
-                st.rerun()
+                save_db(db); st.rerun()
     with col2:
-        st.write("### Seznam registrovaných klientů")
-        if not db["clients"]:
-            st.info("Zatím žádní klienti.")
-        
         for c in db["clients"]:
-            # Створюємо розкривний список для кожного клієнта
             with st.expander(f"👤 {c['name']} (📞 {c['phone']})"):
-                # Знаходимо авто цього клієнта
-                client_cars = [car for car in db["cars"] if car.get("owner_id") == c["id"]]
-                
-                if client_cars:
-                    st.write("**Vozidla klienta:**")
-                    for car in client_cars:
-                        st.markdown(f"- 🚗 **{car['brand_model']}** | SPZ: {car['reg_number']}")
-                else:
-                    st.warning("Klient zatím nemá žádná vozidla.")
-                    
+                cars = [car for car in db["cars"] if car.get("owner_id") == c["id"]]
+                if cars:
+                    for car in cars: st.write(f"🚗 {car['brand_model']} ({car['reg_number']})")
+                else: st.warning("Žádná vozidla.")
+
 # 2. ВКЛАДКА АВТО
 with tabs[1]:
     st.header("Vozový park")
-    if not db["cars"]:
-        st.info("Seznam vozidel je prázdný.")
     for car in db["cars"]:
-        st.write(f"🚗 {car['brand_model']} ({car['reg_number']})")
+        st.write(f"🚗 {car['brand_model']} | SPZ: {car['reg_number']}")
 
 # 3. ВКЛАДКА ДОДАВАННЯ
 with tabs[2]:
@@ -76,16 +58,8 @@ with tabs[2]:
     with st.form("car_form"):
         model = st.text_input("Značka a model")
         spz = st.text_input("SPZ")
-        # Вибір клієнта
-        client_names = {c['name']: c['id'] for c in db["clients"]}
-        selected_client = st.selectbox("Vyberte majitele", list(client_names.keys()))
-        
+        client_options = {c['name']: c['id'] for c in db["clients"]}
+        selected_client = st.selectbox("Vyberte majitele", list(client_options.keys()))
         if st.form_submit_button("Uložit vozidlo"):
-            db["cars"].append({
-                "brand_model": model, 
-                "reg_number": spz, 
-                "owner_id": client_names[selected_client]
-            })
-            save_db(db)
-            st.success("Vozidlo přidáno!")
-            st.rerun()
+            db["cars"].append({"brand_model": model, "reg_number": spz, "owner_id": client_options[selected_client]})
+            save_db(db); st.success("Vozidlo přidáno!"); st.rerun()
