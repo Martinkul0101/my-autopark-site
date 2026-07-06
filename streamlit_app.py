@@ -37,7 +37,7 @@ if menu == "📋 SEZNAM VOZIDEL":
 
         tab1, tab2, tab3 = st.tabs(["📊 Informace", "🔧 Přidat servis", "📜 Historie"])
 
-                with tab1:
+        with tab1:
             st.subheader("🛠 Technické údaje a údržba")
             
             # Відображення даних (використовуємо st.expander для чистоти)
