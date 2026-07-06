@@ -93,7 +93,7 @@ if menu == "📋 SEZNAM VOZIDEL":
             filtered = [r for r in history if search.lower() in r['parts'].lower()]
             for i, record in enumerate(reversed(filtered)):
                 with st.expander(f"📅 {record['date']} — {record['parts']}"):
-                    if st.button(f"Smazat {i}", key=f"del_{record['date']}_{i}"):
+                    if st.button(f"Smazat záznam", key=f"del_{car['vin']}_{record['date']}_{i}"):
                         db["repairs"].remove(record); save_data(db); st.rerun()
 
 
