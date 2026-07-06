@@ -1,64 +1,63 @@
-import pygame
+import streamlit as st
+import json
 import os
+from datetime import datetime
 
-pygame.init()
-WIDTH, HEIGHT = 800, 400
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-clock = pygame.time.Clock()
+# Налаштування стилю
+st.set_page_config(page_title="AutoGarage CRM", layout="wide")
+st.markdown("""
+    <style>
+    .card { background-color: #f0f2f6; padding: 20px; border-radius: 15px; margin-bottom: 10px; border-left: 5px solid #FF4B4B; }
+    .stButton>button { width: 100%; border-radius: 10px; }
+    </style>
+""", unsafe_allow_html=True)
 
-# Перевірка наявності картинки
-if os.path.exists("godzilla.png"):
-    godzilla_img = pygame.image.load("godzilla.png")
-    godzilla_img = pygame.transform.scale(godzilla_img, (60, 60))
-else:
-    godzilla_img = None
+# База даних (Функції)
+def load_db():
+    if not os.path.exists("db.json"): return {"cars": []}
+    with open("db.json", "r") as f: return json.load(f)
 
-# Параметри гравця
-player_x, player_y = 50, 300
-vel_y = 0
-is_jumping = False
+def save_db(db):
+    with open("db.json", "w") as f: json.dump(db, f)
 
-# Параметри перешкоди
-obs_x, obs_y = 700, 300
-obs_speed = 7
+db = load_db()
 
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+# Інтерфейс
+st.title("🚗 AutoGarage Management")
 
-    # Стрибок
-    keys = pygame.key.get_pressed()
-    if not is_jumping:
-        if keys[pygame.K_SPACE]:
-            vel_y = -18
-            is_jumping = True
-    else:
-        player_y += vel_y
-        vel_y += 1
-        if player_y >= 300:
-            player_y = 300
-            is_jumping = False
+# Додавання авто
+with st.sidebar:
+    st.header("➕ Nové auto")
+    with st.form("new_car"):
+        brand = st.text_input("Značka")
+        spz = st.text_input("SPZ")
+        if st.form_submit_button("Přidat"):
+            db["cars"].append({"brand": brand, "spz": spz, "history": []})
+            save_db(db); st.rerun()
 
-    # Рух перешкоди
-    obs_x -= obs_speed
-    if obs_x < -50:
-        obs_x = 800
-
-    # Рендеринг
-    screen.fill((135, 206, 235))
-    pygame.draw.rect(screen, (34, 139, 34), (0, 350, 800, 50))
-    
-    if godzilla_img:
-        screen.blit(godzilla_img, (player_x, player_y))
-    else:
-        pygame.draw.rect(screen, (0, 100, 0), (player_x, player_y, 50, 50))
-    
-    # Виправлений рядок з дужками:
-    pygame.draw.rect(screen, (100, 100, 100), (obs_x, obs_y, 50, 50))
-    
-    pygame.display.flip()
-    clock.tick(60)
-
-pygame.quit()
+# Список авто у вигляді сучасних карток
+for i, car in enumerate(db["cars"]):
+    with st.container():
+        st.markdown(f'<div class="card">', unsafe_allow_html=True)
+        col1, col2 = st.columns([3, 1])
+        col1.subheader(f"{car['brand']} | {car['spz']}")
+        
+        if col2.button("🗑 Smazat", key=f"del_{i}"):
+            db["cars"].pop(i); save_db(db); st.rerun()
+            
+        with st.expander("🛠 Detaily a servis"):
+            # Редагування
+            new_brand = st.text_input("Změnit značku", value=car['brand'], key=f"brand_{i}")
+            if st.button("Uložit změny", key=f"save_{i}"):
+                db["cars"][i]['brand'] = new_brand
+                save_db(db); st.rerun()
+            
+            # Роботи
+            st.write("---")
+            desc = st.text_input("Nová práce", key=f"desc_{i}")
+            if st.button("Přidat záznam", key=f"add_{i}"):
+                db["cars"][i]['history'].append(f"{datetime.now().strftime('%d.%m.%Y')}: {desc}")
+                save_db(db); st.rerun()
+            
+            for h in car['history']: st.info(h)
+        st.markdown('</div>', unsafe_allow_html=True
