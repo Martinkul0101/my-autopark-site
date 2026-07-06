@@ -60,7 +60,6 @@ if menu == "📋 SEZNAM VOZIDEL":
                         save_data(db); st.rerun()
 
          with tab2:
-                with tab2:
             st.subheader("Nový servisní záznam")
             
             # Логіка для автозаповнення (працює окремо від форми)
