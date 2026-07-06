@@ -90,11 +90,29 @@ if menu == "📋 SEZNAM VOZIDEL":
 
 elif menu == "➕ PŘIDAT VOZIDLO":
     st.title("➕ Registrace nového vozidla")
+    
     with st.form("new_car"):
-        vin = st.text_input("VIN kód")
-        model = st.text_input("Značka a model")
-        if st.form_submit_button("Uložit"):
-            db["cars"].append({"vin": vin, "brand_model": model, "mileage": 0, "reg_number": "", "stk_date": ""})
-            save_data(db)
-            st.success("Uloženo!")
-            st.rerun()
+        col1, col2 = st.columns(2)
+        vin = col1.text_input("VIN kód")
+        model = col2.text_input("Značka a model")
+        spz = col1.text_input("Registrační značka (SPZ)")
+        km = col2.number_input("Počáteční stav tachometru (km)", min_value=0)
+        stk = col1.date_input("Platnost STK do:")
+        insurance = col2.date_input("Platnost pojištění do:")
+        
+        if st.form_submit_button("Uložit vozidlo", type="primary"):
+            if vin and model:
+                db["cars"].append({
+                    "vin": vin, 
+                    "brand_model": model, 
+                    "reg_number": spz, 
+                    "mileage": km, 
+                    "stk_date": str(stk),
+                    "insurance_date": str(insurance)
+                })
+                save_data(db)
+                st.success(f"Vozidlo {model} bylo úspěšně uloženo!")
+                st.rerun()
+            else:
+                st.error("VIN kód a Model jsou povinné údaje.")
+                
