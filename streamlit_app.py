@@ -112,7 +112,7 @@ if menu == "📋 SEZNAM VOZIDEL":
                     st.session_state.last_parts = history[-1]['parts']
                     st.rerun()
             
-            with st.form(f"repair_form_{car['vin']}"):
+            with st.form(key=f"unique_repair_form_{car['vin']}"):
                 col_a, col_b = st.columns(2)
                 desc = col_a.text_input("Popis práce")
                 parts = col_b.text_input("Díly / Oleje", value=st.session_state.get('last_parts', ""))
