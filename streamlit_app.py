@@ -46,18 +46,41 @@ if menu == "📋 SEZNAM VOZIDEL":
         with tab1:
             st.subheader("🛠 Technické údaje")
             col1, col2 = st.columns(2)
+            
+            # --- ОСНОВНІ ДАНІ ---
             col1.write(f"**VIN:** {car.get('vin')}")
-            col1.write(f"**Motorový olej:** {car.get('oil_motor', '—')}")
+            col1.write(f"**STK do:** {car.get('stk_date', '—')}")
+            
+            # --- ОЛИВИ ТА РІДИНИ ---
+            col2.write(f"**Motorový olej:** {car.get('oil_motor', '—')}")
+            col2.write(f"**Olej v převodovce:** {car.get('oil_gear', '—')}")
+            col2.write(f"**Olej v diferenciálu:** {car.get('oil_diff', '—')}")
             col2.write(f"**Příští údržba:** {car.get('next_to_km', '—')} km")
-            col2.write(f"**STK do:** {car.get('stk_date')}")
 
+            st.divider()
+            
+            # Форма для редагування (якщо треба змінити параметри)
             with st.expander("✏️ Upravit informace"):
-                with st.form(f"edit_all_{car['vin']}"):
+                with st.form(key=f"edit_all_{car['vin']}"):
                     new_model = st.text_input("Značka a model", value=car.get('brand_model', ''))
                     new_next_km = st.number_input("Příští údržba (km)", value=int(car.get('next_to_km', 0)))
+                    
+                    # Додаємо поля для олив у форму редагування
+                    new_oil_m = st.text_input("Motorový olej", value=car.get('oil_motor', ''))
+                    new_oil_g = st.text_input("Olej v převodovce", value=car.get('oil_gear', ''))
+                    new_oil_d = st.text_input("Olej v diferenciálu", value=car.get('oil_diff', ''))
+                    
                     if st.form_submit_button("Uložit změny"):
-                        db["cars"][selected_idx].update({"brand_model": new_model, "next_to_km": new_next_km})
-                        save_data(db); st.rerun()
+                        db["cars"][selected_idx].update({
+                            "brand_model": new_model,
+                            "next_to_km": new_next_km,
+                            "oil_motor": new_oil_m,
+                            "oil_gear": new_oil_g,
+                            "oil_diff": new_oil_d
+                        })
+                        save_data(db)
+                        st.rerun()
+
 
         with tab2:
             st.subheader("Nový servisní záznam")
