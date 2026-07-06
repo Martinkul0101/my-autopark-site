@@ -129,7 +129,7 @@ if menu == "📋 SEZNAM VOZIDEL":
 
         with tab3:
             st.subheader("Historie údržby")
-            search = st.text_input("🔍 Hledat v dílech:")
+            search = st.text_input("🔍 Hledat v dílech:", key=f"search_{car['vin']}")
             filtered = [r for r in history if search.lower() in r['parts'].lower() or search.lower() in r['description'].lower()]
             for i, record in enumerate(reversed(filtered)):
                 with st.expander(f"📅 {record['date']} — {record['parts']} ({record['cost']} Kč)"):
