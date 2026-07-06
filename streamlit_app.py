@@ -96,7 +96,8 @@ if menu == "📋 SEZNAM VOZIDEL":
             })
             
         df_cars = pd.DataFrame(tabela_aut).sort_values(by="Typ")
-        id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single", key="cars_df_selection")
+        id_vyberu = st.dataframe(df_cars, use_container_width=True, hide_index=True, selection_mode="single-row", key="cars_df_selection")
+
         oznacene_radky = id_vyberu.get("selection", {}).get("rows", [])
         
         if oznacene_radky:
