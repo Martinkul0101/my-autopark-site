@@ -1,47 +1,93 @@
 import streamlit as st
 import pandas as pd
 import json
+import os
+from datetime import datetime
 
-# --- СТИЛІЗАЦІЯ ---
-def apply_custom_css():
-    st.markdown("""
-        <style>
-        .stMetric { background-color: #f0f2f6; padding: 15px; border-radius: 10px; }
-        .stDataFrame { border: 1px solid #ddd; border-radius: 10px; }
-        </style>
-    """, unsafe_allow_html=True)
+# --- НАЛАШТУВАННЯ СТОРІНКИ ---
+st.set_page_config(page_title="Správa Vozového Parku", layout="wide", page_icon="🚚")
+DB_FILE = "database.json"
 
-# ... (ваш код завантаження даних) ...
+# --- БАЗА ДАНИХ ---
+def load_data():
+    if not os.path.exists(DB_FILE):
+        return {"cars": [], "repairs": []}
+    try:
+        with open(DB_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {"cars": [], "repairs": []}
 
+def save_data(data):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+db = load_data()
+
+# --- БІЧНЕ МЕНЮ ---
+st.sidebar.markdown("## 🚚 AUTOPARK")
+menu = st.sidebar.radio("NAVIGACE", ["📋 SEZNAM VOZIDEL", "➕ PŘIDAT VOZIDLO"])
+st.sidebar.divider()
+st.sidebar.info("Lokální systém pro správu vozidel.")
+
+# --- ДОПОМІЖНІ ФУНКЦІЇ ---
+def get_status_emoji(days):
+    if days < 0: return "🚨"
+    if days <= 30: return "⚠️"
+    return "✅"
+
+# --- ЕКРАН 1: SEZNAM VOZIDEL ---
 if menu == "📋 SEZNAM VOZIDEL":
-    st.title("📋 Přehled vozového parku")
+    st.title("📋 Seznam vozidel")
     
-    # 1. Інформативні метрики (виглядає як професійний дашборд)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Celkem vozidel", len(db["cars"]))
-    c2.metric("V servisu", sum(1 for c in db["cars"] if c.get("status") == "Servis"))
-    c3.metric("Najeto celkem", "124 500 km") 
-    
-    st.markdown("---")
-    
-    # 2. Краща таблиця
-    if db["cars"]:
-        df = pd.DataFrame(db["cars"])
-        # Вибираємо тільки потрібні колонки для відображення
-        display_df = df[["brand_model", "reg_number", "mileage"]]
+    if not db["cars"]:
+        st.info("Zatím nejsou žádná vozidla.")
+    else:
+        # Створюємо гарний дашборд
+        df_cars = pd.DataFrame(db["cars"])
         
-        # Перейменовуємо для краси
-        display_df.columns = ["Model", "SPZ", "Najeto (km)"]
+        # Вибір авто
+        selected_car_idx = st.selectbox("Vyberte vozidlo pro zobrazení detailů:", range(len(df_cars)), 
+                                        format_func=lambda x: f"{df_cars.iloc[x]['brand_model']} ({df_cars.iloc[x]['reg_number']})")
         
-        st.dataframe(
-            display_df, 
-            use_container_width=True, 
-            hide_index=True,
-            column_config={
-                "Najeto (km)": st.column_config.NumberColumn(format="%d km")
-            }
-        )
+        car = db["cars"][selected_car_idx]
+        
+        # Відображення деталей
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Model", car.get("brand_model"))
+        col2.metric("SPZ", car.get("reg_number"))
+        col3.metric("Tachometr", f"{car.get('mileage')} km")
+        
+        st.divider()
+        st.subheader("🔧 Servisní historie")
+        
+        # Таблиця з ремонтами
+        repairs = [r for r in db["repairs"] if r["vin"] == car["vin"]]
+        if repairs:
+            st.dataframe(pd.DataFrame(repairs)[["date", "description", "cost"]], use_container_width=True)
+        else:
+            st.write("Žádné servisní záznamy.")
 
-# 3. Використання Expander для чистоти інтерфейсу
-with st.expander("ℹ️ Jak pracovat s daty"):
-    st.write("Vyberte vozidlo z tabulky kliknutím na řádek. Po výběru se níže zobrazí detailní karta s historií oprav.")
+# --- ЕКРАН 2: PŘIDAT VOZIDLO ---
+elif menu == "➕ PŘIDAT VOZIDLO":
+    st.title("➕ Registrace nového vozidla")
+    
+    with st.form("new_car"):
+        c1, c2 = st.columns(2)
+        vin = c1.text_input("VIN kód")
+        model = c2.text_input("Značka a model")
+        spz = c1.text_input("SPZ")
+        km = c2.number_input("Počáteční stav tachometru", min_value=0)
+        stk = st.date_input("Platnost STK")
+        
+        if st.form_submit_button("Uložit vozidlo"):
+            if vin and model:
+                db["cars"].append({
+                    "vin": vin, "brand_model": model, "reg_number": spz, 
+                    "mileage": km, "stk_date": str(stk)
+                })
+                save_data(db)
+                st.success("Vozidlo bylo uloženo!")
+                st.rerun()
+            else:
+                st.error("Vyplňte alespoň VIN a Model.")
