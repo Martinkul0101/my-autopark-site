@@ -60,21 +60,45 @@ if menu == "📋 SEZNAM VOZIDEL":
                         save_data(db); st.rerun()
 
         with tab2:
+                with tab2:
             st.subheader("Nový servisní záznam")
+            
+            # Логіка для автозаповнення (працює окремо від форми)
             if history:
                 if st.button("🔄 Předvyplnit z posledního servisu", key=f"fill_{car['vin']}"):
                     st.session_state.last_parts = history[-1]['parts']
                     st.rerun()
-            with st.form(f"repair_form_{car['vin']}"):
+            
+            # Сама форма (тепер з унікальним ключем)
+            with st.form(key=f"repair_form_unique_{car['vin']}"):
                 col_a, col_b = st.columns(2)
+                
+                # Поля форми
                 desc = col_a.text_input("Popis práce")
                 parts = col_b.text_input("Díly / Oleje", value=st.session_state.get('last_parts', ""))
                 cost = col_a.number_input("Cena (Kč)", min_value=0)
                 new_km = col_b.number_input("Stav tachometru", value=int(car.get('mileage', 0)))
+                
+                # Кнопка збереження
                 if st.form_submit_button("Uložit servis"):
-                    db["repairs"].append({"vin": car["vin"], "date": str(datetime.today().date()), "description": desc, "parts": parts, "cost": cost, "mileage": new_km})
+                    # Зберігаємо дані
+                    db["repairs"].append({
+                        "vin": car["vin"], 
+                        "date": str(datetime.today().date()), 
+                        "description": desc, 
+                        "parts": parts, 
+                        "cost": cost, 
+                        "mileage": new_km
+                    })
                     db["cars"][selected_idx]["mileage"] = new_km
-                    save_data(db); st.rerun()
+                    save_data(db)
+                    
+                    # Очищаємо сесію після збереження
+                    if 'last_parts' in st.session_state:
+                        del st.session_state.last_parts
+                    
+                    st.success("Záznam uložen!")
+                    st.rerun()
 
         with tab3:
             st.subheader("📋 Kódy filtrů a náplní")
