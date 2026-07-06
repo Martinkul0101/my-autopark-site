@@ -6,7 +6,7 @@ WIDTH, HEIGHT = 800, 400
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
-# Завантаження картинки (якщо вона є в папці)
+# Перевірка наявності картинки
 if os.path.exists("godzilla.png"):
     godzilla_img = pygame.image.load("godzilla.png")
     godzilla_img = pygame.transform.scale(godzilla_img, (60, 60))
@@ -18,7 +18,7 @@ player_x, player_y = 50, 300
 vel_y = 0
 is_jumping = False
 
-# Параметри перешкоди (будинку)
+# Параметри перешкоди
 obs_x, obs_y = 700, 300
 obs_speed = 7
 
@@ -46,20 +46,19 @@ while running:
     if obs_x < -50:
         obs_x = 800
 
-    # Перевірка програшу (зіткнення)
-    if player_x + 50 > obs_x and player_y + 50 > obs_y:
-        print("GAME OVER!")
-        obs_x = 800 # Рестарт позиції
-
     # Рендеринг
     screen.fill((135, 206, 235))
-    pygame.draw.rect(screen, (34, 139, 34), (0, 350, 800, 50)) # Земля
+    pygame.draw.rect(screen, (34, 139, 34), (0, 350, 800, 50))
     
-    # Малюємо Годзіллу або квадрат
     if godzilla_img:
         screen.blit(godzilla_img, (player_x, player_y))
     else:
         pygame.draw.rect(screen, (0, 100, 0), (player_x, player_y, 50, 50))
     
-    # Малюємо будинок
-    pygame.draw.rect(screen, (100, 100, 100), (obs_x, obs_y, 50,
+    # Виправлений рядок з дужками:
+    pygame.draw.rect(screen, (100, 100, 100), (obs_x, obs_y, 50, 50))
+    
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
