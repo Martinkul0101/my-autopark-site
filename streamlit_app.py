@@ -40,47 +40,54 @@ if menu == "📋 SEZNAM VOZIDEL":
         # Створюємо вкладки
         tab1, tab2, tab3 = st.tabs(["📊 Informace", "🔧 Přidat servis", "📜 Historie"])
 
-        with tab1:
+       with tab1:
             st.subheader("🛠 Technické údaje")
             col1, col2 = st.columns(2)
             col1.write(f"**VIN:** {car.get('vin')}")
             col1.write(f"**Motorový olej:** {car.get('oil_motor', '—')}")
             col1.write(f"**Olej v převodovce:** {car.get('oil_gear', '—')}")
+            col1.write(f"**Olej v diferenciálu:** {car.get('oil_diff', '—')}")
             col2.write(f"**Příští údržba:** {car.get('next_to_km', '—')} km")
             col2.write(f"**STK do:** {car.get('stk_date')}")
             col2.write(f"**Pojištění do:** {car.get('insurance_date', '—')}")
 
             st.divider()
             
-            # --- ФОРМА РЕДАГУВАННЯ АВТО ---
-            with st.expander("✏️ Komplexní úprava vozidla"):
-                with st.form(f"edit_car_{car['vin']}"):
+            # --- ФОРМА РЕДАГУВАННЯ (Авто + Оливи) ---
+            with st.expander("✏️ Upravit informace o vozidle a náplních"):
+                with st.form(f"edit_all_{car['vin']}"):
+                    st.write("### Základní údaje")
                     new_model = st.text_input("Značka a model", value=car.get('brand_model', ''))
                     new_vin = st.text_input("VIN kód", value=car.get('vin', ''))
                     new_spz = st.text_input("SPZ", value=car.get('reg_number', ''))
-                    new_km = st.number_input("Stav tachometru", value=int(car.get('mileage', 0)))
-                    new_stk = st.date_input("STK do", value=pd.to_datetime(car.get('stk_date', '2025-01-01')))
                     
-                    if st.form_submit_button("Uložit změny vozidla"):
+                    st.write("### Technické náplně a servis")
+                    new_oil_m = st.text_input("Motorový olej", value=car.get('oil_motor', ''))
+                    new_oil_g = st.text_input("Olej v převodovce", value=car.get('oil_gear', ''))
+                    new_oil_d = st.text_input("Olej v diferenciálu", value=car.get('oil_diff', ''))
+                    new_next_km = st.number_input("Příští údržba (km)", value=int(car.get('next_to_km', 0)))
+                    
+                    if st.form_submit_button("Uložit změny"):
                         db["cars"][selected_idx].update({
                             "brand_model": new_model,
                             "vin": new_vin,
                             "reg_number": new_spz,
-                            "mileage": new_km,
-                            "stk_date": str(new_stk)
+                            "oil_motor": new_oil_m,
+                            "oil_gear": new_oil_g,
+                            "oil_diff": new_oil_d,
+                            "next_to_km": new_next_km
                         })
                         save_data(db)
-                        st.success("Vozidlo bylo upraveno!")
+                        st.success("Data byla uložena!")
                         st.rerun()
 
-            # --- КНОПКА ВИДАЛЕННЯ АВТО ---
-            if st.button("🗑️ Smazat celé vozidlo", type="primary"):
-                # Видаляємо авто та всі пов'язані з ним ремонти
+            # --- КНОПКА ВИДАЛЕННЯ ---
+            if st.button("🗑️ Smazat celé vozidlo"):
                 db["cars"].pop(selected_idx)
                 db["repairs"] = [r for r in db["repairs"] if r["vin"] != car["vin"]]
                 save_data(db)
-                st.warning("Vozidlo a jeho historie byly smazány.")
                 st.rerun()
+                
                 
         with tab2:
             st.subheader("Nový servisní záznam")
