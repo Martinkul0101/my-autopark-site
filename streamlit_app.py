@@ -38,20 +38,35 @@ if menu == "👥 Klienti":
         st.write(f"👤 **{client['name']}** | 📞 {client['phone']}")
 
 # --- ЛОГІКА АВТОМОБІЛІВ ---
-elif menu == "📋 Seznam vozidel":
-    st.header("📋 Seznam vozidel")
-    if not db["cars"]:
-        st.info("Zatím žádná vozidla.")
+# --- ЛОГІКА ДОДАВАННЯ ---
+elif menu == "➕ Přidat záznam":
+    st.header("➕ Přidat nové vozidlo")
+    
+    if not db["clients"]:
+        st.warning("Nejdříve musíte přidat alespoň jednoho klienta v sekci 'Klienti'.")
     else:
-        for idx, car in enumerate(db["cars"]):
-            with st.expander(f"🚗 {car['brand_model']} ({car['reg_number']})"):
-                st.write(f"**VIN:** {car['vin']}")
-                owner = next((c['name'] for c in db["clients"] if c['id'] == car['owner_id']), "Neznámý")
-                st.write(f"**Majitel:** {owner}")
-                if st.button(f"Smazat {car['reg_number']}", key=f"del_{idx}"):
-                    db["cars"].pop(idx)
-                    save_data(db)
-                    st.rerun()
+        with st.form("new_car"):
+            model = st.text_input("Značka a model")
+            vin = st.text_input("VIN")
+            spz = st.text_input("SPZ")
+            
+            # Створюємо словник клієнтів
+            client_options = {c['name']: c['id'] for c in db.get("clients", [])}
+            owner_name = st.selectbox("Vyberte majitele", list(client_options.keys()))
+            
+            # ТУТ БУЛА ВІДСУТНЯ КНОПКА
+            submit = st.form_submit_button("Uložit vozidlo")
+            
+            if submit:
+                db["cars"].append({
+                    "brand_model": model, 
+                    "vin": vin, 
+                    "reg_number": spz, 
+                    "owner_id": client_options[owner_name], 
+                    "mileage": 0
+                })
+                save_data(db)
+                st.success("Vozidlo úspěšně přidáno!")
 
 # --- ЛОГІКА ДОДАВАННЯ ---
 elif menu == "➕ Přidat záznam":
