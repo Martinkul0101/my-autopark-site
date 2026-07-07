@@ -19,24 +19,33 @@ def save(db):
     with open("db.json", "w") as f: 
         json.dump(db, f, indent=4)
 
+import unicodedata
+
+def clean_text(text):
+    # Видаляємо діакритичні знаки (š -> s, č -> c тощо)
+    return ''.join(c for c in unicodedata.normalize('NFD', text)
+                   if unicodedata.category(c) != 'Mn')
+
 def get_pdf_bytes(car):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, txt=f"Historie: {car['brand']} ({car['spz']})", ln=True, align='C')
+    
+    # Використовуємо clean_text для заголовка
+    header = clean_text(f"Historie: {car['brand']} ({car['spz']})")
+    pdf.cell(0, 10, txt=header, ln=True, align='C')
+    
     pdf.set_font("Arial", size=12)
     pdf.ln(10)
     pdf.cell(0, 10, txt=f"VIN: {car.get('vin', 'N/A')}", ln=True)
     pdf.ln(5)
-    for h in car['history']:
-        pdf.multi_cell(0, 10, txt=h)
     
-    # Повертаємо результат як байти
+    for h in car['history']:
+        # Використовуємо clean_text для кожного рядка історії
+        pdf.multi_cell(0, 10, txt=clean_text(h))
+    
     return pdf.output(dest='S')
-
-db = load()
-
-st.title("🚗 AutoGarage CRM")
+    
 
 # Бічна панель
 with st.sidebar:
