@@ -7,7 +7,7 @@ from fpdf import FPDF
 # Конфігурація сторінки
 st.set_page_config(page_title="AutoGarage CRM", layout="centered")
 
-# --- Базові функції ---
+# --- Функції роботи з даними та PDF ---
 def load():
     if not os.path.exists("db.json"): 
         return {"cars": []}
@@ -30,14 +30,15 @@ def create_pdf(car):
     pdf.set_font("Arial", size=10)
     for h in car['history']:
         pdf.multi_cell(0, 10, txt=h)
-    return pdf.output(dest='S').encode('latin-1')
+    # Повертаємо байти для скачування
+    return pdf.output(dest='S')
 
-# --- Логіка ---
+# --- Основна частина ---
 db = load()
 
 st.title("🚗 AutoGarage CRM")
 
-# Бічна панель: Додавання авто
+# Бокова панель: Додавання авто
 with st.sidebar:
     st.header("➕ Nové auto")
     with st.form("new_car_form"):
@@ -58,7 +59,6 @@ filt = [c for c in db["cars"] if src.lower() in c['brand'].lower() or src.lower(
 for car in filt:
     idx = db["cars"].index(car)
     with st.expander(f"{car['brand']} | {car['spz']}"):
-        # Редагування даних
         new_brand = st.text_input("Značka", value=car['brand'], key=f"b_{idx}")
         new_spz = st.text_input("SPZ", value=car['spz'], key=f"n_{idx}")
         new_vin = st.text_input("VIN", value=car.get('vin', ''), key=f"v_{idx}")
@@ -69,7 +69,6 @@ for car in filt:
             st.rerun()
             
         st.write("---")
-        # Додавання робіт
         wrk = st.text_input("Provedená práce", key=f"w_{idx}")
         parts = st.text_input("Náhradní díly", key=f"p_{idx}")
         km = st.number_input("Tachometr (km)", min_value=0, key=f"km_{idx}")
@@ -80,11 +79,9 @@ for car in filt:
             save(db)
             st.rerun()
             
-        # Історія
         for h in car['history']:
             st.info(h)
             
-        # PDF та Видалення
         col1, col2 = st.columns(2)
         with col1:
             pdf_data = create_pdf(car)
