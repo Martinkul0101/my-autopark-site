@@ -18,6 +18,8 @@ def save(db):
     with open("db.json", "w") as f: 
         json.dump(db, f, indent=4)
 
+import io # Переконайтеся, що цей імпорт є зверху
+
 def create_pdf(car):
     pdf = FPDF()
     pdf.add_page()
@@ -30,8 +32,9 @@ def create_pdf(car):
     pdf.set_font("Arial", size=10)
     for h in car['history']:
         pdf.multi_cell(0, 10, txt=h)
-    # Повертаємо байти для скачування
-    return pdf.output(dest='S')
+    
+    # ПОВЕРТАЄМО САМЕ БАЙТИ
+    return pdf.output(dest='S') 
 
 # --- Основна частина ---
 db = load()
