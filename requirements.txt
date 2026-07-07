@@ -1,2 +1,4 @@
 supabase
 httpx
+streamlit
+fpdf2
