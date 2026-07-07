@@ -1,20 +1,24 @@
 import streamlit as st
 import json
 import os
-import io
 from datetime import datetime
 from fpdf import FPDF
 
+# Конфігурація
 st.set_page_config(page_title="AutoGarage CRM", layout="centered")
 
 def load():
     if not os.path.exists("db.json"): return {"cars": []}
-    with open("db.json", "r") as f: return json.load(f)
+    with open("db.json", "r") as f: 
+        try:
+            return json.load(f)
+        except:
+            return {"cars": []}
 
 def save(db):
-    with open("db.json", "w") as f: json.dump(db, f, indent=4)
+    with open("db.json", "w") as f: 
+        json.dump(db, f, indent=4)
 
-# Функція, яка створює PDF і повертає байти
 def get_pdf_bytes(car):
     pdf = FPDF()
     pdf.add_page()
@@ -26,20 +30,25 @@ def get_pdf_bytes(car):
     pdf.ln(5)
     for h in car['history']:
         pdf.multi_cell(0, 10, txt=h)
+    
+    # Повертаємо результат як байти
     return pdf.output(dest='S')
 
 db = load()
+
 st.title("🚗 AutoGarage CRM")
 
-# Бокова панель
+# Бічна панель
 with st.sidebar:
     st.header("➕ Nové auto")
     with st.form("new_car"):
         br = st.text_input("Značka")
         nr = st.text_input("SPZ")
         if st.form_submit_button("Přidat"):
-            db["cars"].append({"brand": br, "spz": nr, "vin": "", "history": []})
-            save(db); st.rerun()
+            if br and nr:
+                db["cars"].append({"brand": br, "spz": nr, "vin": "", "history": []})
+                save(db)
+                st.rerun()
 
 # Список авто
 for i, car in enumerate(db["cars"]):
@@ -47,20 +56,22 @@ for i, car in enumerate(db["cars"]):
         # Редагування
         car['brand'] = st.text_input("Značka", value=car['brand'], key=f"b{i}")
         car['spz'] = st.text_input("SPZ", value=car['spz'], key=f"s{i}")
-        if st.button("Uložit", key=f"save{i}"): save(db); st.rerun()
+        car['vin'] = st.text_input("VIN", value=car.get('vin', ''), key=f"v{i}")
+        if st.button("Uložit změny", key=f"save{i}"): save(db); st.rerun()
         
-        # Робота
-        wrk = st.text_input("Práce", key=f"w{i}")
+        st.write("---")
+        wrk = st.text_input("Provedená práce", key=f"w{i}")
         if st.button("Přidat záznam", key=f"add{i}"):
             car['history'].append(f"{datetime.now().strftime('%d.%m.%Y')} | {wrk}")
             save(db); st.rerun()
             
         for h in car['history']: st.info(h)
         
-        # Кнопка завантаження (Виправлено!)
+        # Кнопка PDF з примусовим перетворенням у bytes
+        pdf_bytes = get_pdf_bytes(car)
         st.download_button(
             label="📥 Export PDF",
-            data=get_pdf_bytes(car),
-            file_name="historie.pdf",
+            data=bytes(pdf_bytes),
+            file_name=f"{car['spz']}_historie.pdf",
             mime="application/pdf"
         )
