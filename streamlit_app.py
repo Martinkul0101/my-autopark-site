@@ -2,61 +2,95 @@ import streamlit as st
 import json
 import os
 from datetime import datetime
+from fpdf import FPDF
 
-st.set_page_config(page_title="AutoGarage CRM", layout="wide")
+# Конфігурація сторінки
+st.set_page_config(page_title="AutoGarage CRM", layout="centered")
 
+# --- Базові функції ---
 def load():
-    if not os.path.exists("db.json"): return {"cars": []}
-    with open("db.json", "r") as f: return json.load(f)
+    if not os.path.exists("db.json"): 
+        return {"cars": []}
+    with open("db.json", "r") as f: 
+        return json.load(f)
 
 def save(db):
-    with open("db.json", "w") as f: json.dump(db, f)
+    with open("db.json", "w") as f: 
+        json.dump(db, f, indent=4)
 
+def create_pdf(car):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, txt=f"Historie servisu: {car['brand']} ({car['spz']})", ln=True, align='C')
+    pdf.set_font("Arial", size=12)
+    pdf.ln(10)
+    pdf.cell(0, 10, txt=f"VIN: {car.get('vin', 'N/A')}", ln=True)
+    pdf.ln(5)
+    pdf.set_font("Arial", size=10)
+    for h in car['history']:
+        pdf.multi_cell(0, 10, txt=h)
+    return pdf.output(dest='S').encode('latin-1')
+
+# --- Логіка ---
 db = load()
 
-st.title("🚗 AutoGarage Management")
+st.title("🚗 AutoGarage CRM")
 
+# Бічна панель: Додавання авто
 with st.sidebar:
-    st.header("➕ Přidat auto")
-    with st.form("new"):
+    st.header("➕ Nové auto")
+    with st.form("new_car_form"):
         br = st.text_input("Značka")
         nr = st.text_input("SPZ")
-        vin = st.text_input("VIN kód")
+        vin = st.text_input("VIN")
         if st.form_submit_button("Přidat"):
-            db["cars"].append({"brand": br, "spz": nr, "vin": vin, "history": []})
-            save(db); st.rerun()
+            if br and nr:
+                db["cars"].append({"brand": br, "spz": nr, "vin": vin, "history": []})
+                save(db)
+                st.rerun()
 
-src = st.text_input("🔍 Hledat", "")
+# Пошук
+src = st.text_input("🔍 Hledat podle značky nebo SPZ", "")
 filt = [c for c in db["cars"] if src.lower() in c['brand'].lower() or src.lower() in c['spz'].lower()]
 
+# Відображення списку авто
 for car in filt:
     idx = db["cars"].index(car)
-    with st.container():
-        st.subheader(f"{car['brand']} | {car['spz']}")
+    with st.expander(f"{car['brand']} | {car['spz']}"):
+        # Редагування даних
+        new_brand = st.text_input("Značka", value=car['brand'], key=f"b_{idx}")
+        new_spz = st.text_input("SPZ", value=car['spz'], key=f"n_{idx}")
+        new_vin = st.text_input("VIN", value=car.get('vin', ''), key=f"v_{idx}")
         
-        with st.expander("📝 Upravit informace / Servis"):
-            # Редагування
-            new_brand = st.text_input("Značka", value=car['brand'], key=f"b_{idx}")
-            new_spz = st.text_input("SPZ", value=car['spz'], key=f"n_{idx}")
-            new_vin = st.text_input("VIN kód", value=car.get('vin', ''), key=f"v_{idx}")
-            if st.button("Uložit změny dat", key=f"save_data_{idx}"):
-                db["cars"][idx].update({"brand": new_brand, "spz": new_spz, "vin": new_vin})
-                save(db); st.rerun()
+        if st.button("Uložit změny", key=f"save_{idx}"):
+            db["cars"][idx].update({"brand": new_brand, "spz": new_spz, "vin": new_vin})
+            save(db)
+            st.rerun()
             
-            st.write("---")
-            # Сервіс + Запчастини
-            wrk = st.text_input("Provedená práce", key=f"w_{idx}")
-            parts = st.text_input("Použité náhradní díly", key=f"p_{idx}")
-            km = st.number_input("Stav tachometru (km)", min_value=0, key=f"km_{idx}")
+        st.write("---")
+        # Додавання робіт
+        wrk = st.text_input("Provedená práce", key=f"w_{idx}")
+        parts = st.text_input("Náhradní díly", key=f"p_{idx}")
+        km = st.number_input("Tachometr (km)", min_value=0, key=f"km_{idx}")
+        
+        if st.button("Přidat záznam", key=f"s_{idx}"):
+            zaznam = f"{datetime.now().strftime('%d.%m.%Y')} | {km} km | {wrk} | Díly: {parts}"
+            db["cars"][idx]['history'].append(zaznam)
+            save(db)
+            st.rerun()
             
-            if st.button("Uložit záznam", key=f"s_{idx}"):
-                zaznam = f"{datetime.now().strftime('%d.%m.%Y')} | {km} km | {wrk} | Díly: {parts}"
-                db["cars"][idx]['history'].append(zaznam)
-                save(db); st.rerun()
+        # Історія
+        for h in car['history']:
+            st.info(h)
             
-            for h in car['history']: st.info(h)
-            
-            st.write("---")
-            if st.button("🗑 Smazat celé auto", key=f"del_{idx}"):
+        # PDF та Видалення
+        col1, col2 = st.columns(2)
+        with col1:
+            pdf_data = create_pdf(car)
+            st.download_button("📥 PDF", pdf_data, f"{car['spz']}_historie.pdf", "application/pdf")
+        with col2:
+            if st.button("🗑 Smazat auto", key=f"del_{idx}"):
                 db["cars"].pop(idx)
-                save(db); st.rerun()
+                save(db)
+                st.rerun()
