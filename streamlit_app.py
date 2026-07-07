@@ -38,4 +38,23 @@ def get_pdf_bytes(car):
     pdf.cell(0, 10, txt=clean_text(f"VIN: {car.get('vin', 'N/A')}"), ln=True)
     pdf.ln(5)
     for h in car['history']:
-        pdf.multi_cell(0, 10, txt
+        # Всі дужки закрито тут:
+        pdf.multi_cell(0, 10, txt=clean_text(h))
+    return pdf.output(dest='S')
+
+# --- Основна логіка ---
+db = load()
+
+st.title("🚗 AutoGarage CRM")
+
+# Бокова панель
+with st.sidebar:
+    st.header("➕ Nové auto")
+    with st.form("new_car"):
+        br = st.text_input("Značka")
+        nr = st.text_input("SPZ")
+        if st.form_submit_button("Přidat"):
+            if br and nr:
+                db["cars"].append({"brand": br, "spz": nr, "vin": "", "history": []})
+                save(db)
+                st.rerun()
